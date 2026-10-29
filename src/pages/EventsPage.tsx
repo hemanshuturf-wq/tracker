@@ -155,6 +155,7 @@ export default function EventsPage() {
   const prevIdsRef = useRef<string[]>([]);
   const initialLoadRef = useRef(true);
   const newEventTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const handleFilterChange = useCallback((patch: Partial<Filters>) => {
     setFilters((previous) => ({ ...previous, ...patch }));
@@ -268,6 +269,29 @@ export default function EventsPage() {
       }
     };
   }, [partnerUid, eventsLimit, user]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+    if (loading) return;
+    if (events.length < eventsLimit) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          setEventsLimit((previous) => previous + 20);
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    observer.observe(node);
+    return () => {
+      observer.unobserve(node);
+      observer.disconnect();
+    };
+  }, [loading, events.length, eventsLimit]);
 
   // Scope the image query in Firestore rather than downloading other devices' images.
   useEffect(() => {
@@ -737,25 +761,16 @@ export default function EventsPage() {
 
           {renderEvents()}
 
-          {events.length >= eventsLimit && (
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setEventsLimit((previous) => previous + 20)}
-                disabled={loading}
-                className="btn-secondary"
-              >
-                {loading ? (
-                  <span>
-                    <span className="animate-spin mr-2">⏳</span>
-                    Loading...
-                  </span>
-                ) : (
-                  'Load 20 More'
-                )}
-              </button>
-            </div>
-          )}
+          <div ref={loadMoreRef} className="mt-6 text-center">
+            {events.length >= eventsLimit && loading ? (
+              <span className="text-sm text-[var(--text-muted)]">
+                <span className="animate-spin mr-2">⏳</span>
+                Loading...
+              </span>
+            ) : events.length >= eventsLimit ? (
+              <span className="text-xs text-[var(--text-muted)]">Scroll to load more</span>
+            ) : null}
+          </div>
         </div>
       </main>
     </div>
