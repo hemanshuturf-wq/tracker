@@ -101,12 +101,12 @@ export default function EventDetailPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const partnerUid = user
-    ? user.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2'
-      ? 'YLf3pl5On7S68Nnvlh50q4TP7Dv2'
-      : 'y22eIUbwtxdmZFRtDSKabmgXrWQ2'
+    ? user.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3'
+      ? 'dVQspayOWZavC1j8FHqZk4ANX3u2'
+      : 'dicrDfK5OphttPlhKs5rBVUqNnC3'
     : null;
   const partnerName =
-    user?.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2' ? 'Amisha' : 'Parth';
+    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3' ? 'Amisha' : 'Parth';
 
   useEffect(() => {
     if (!id || !partnerUid) {

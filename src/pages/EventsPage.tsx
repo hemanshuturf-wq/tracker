@@ -9,6 +9,7 @@ import {
 import {
   collection,
   doc,
+  getCountFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -59,8 +60,8 @@ interface StatItem {
 }
 
 const PARTNER_UIDS: Record<string, string> = {
-  y22eIUbwtxdmZFRtDSKabmgXrWQ2: 'YLf3pl5On7S68Nnvlh50q4TP7Dv2',
-  YLf3pl5On7S68Nnvlh50q4TP7Dv2: 'y22eIUbwtxdmZFRtDSKabmgXrWQ2',
+  dicrDfK5OphttPlhKs5rBVUqNnC3: 'dVQspayOWZavC1j8FHqZk4ANX3u2',
+  dVQspayOWZavC1j8FHqZk4ANX3u2: 'dicrDfK5OphttPlhKs5rBVUqNnC3',
 };
 
 function toMillis(value: unknown): number | null {
@@ -117,9 +118,9 @@ export default function EventsPage() {
 
   const partnerUid = user ? PARTNER_UIDS[user.uid] ?? null : null;
   const partnerName =
-    user?.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2' ? 'Amisha' : 'Parth';
+    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3' ? 'Amisha' : 'Parth';
   const partnerEmail =
-    user?.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2'
+    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3'
       ? 'amisha@gmail.com'
       : 'parth@gmail.com';
 
@@ -132,6 +133,18 @@ export default function EventsPage() {
   const [connectionStatus, setConnectionStatus] = useState<
     'connected' | 'connecting' | 'error'
   >('connecting');
+
+  const [dbStats, setDbStats] = useState<{
+    total: number | null;
+    sessions: number | null;
+    notifications: number | null;
+    callsSms: number | null;
+  }>({
+    total: null,
+    sessions: null,
+    notifications: null,
+    callsSms: null,
+  });
 
   const [filters, setFilters] = useState<Filters>({
     eventTypes: [],
@@ -170,6 +183,131 @@ export default function EventsPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  const fetchDatabaseCounts = useCallback(async () => {
+    if (!partnerUid) return;
+
+    try {
+      // 1. Total Activity Count (all events for this partner directly from DB)
+      const totalQuery = query(
+        collection(db, 'events'),
+        where('syncedByUid', '==', partnerUid),
+      );
+
+      // 2. Notifications Count
+      const notifsQuery = query(
+        collection(db, 'events'),
+        where('syncedByUid', '==', partnerUid),
+        where('eventType', '==', 'NOTIFICATION_POSTED'),
+      );
+
+      // 3. Sessions Query
+      const sessionsQuery = query(
+        collection(db, 'events'),
+        where('syncedByUid', '==', partnerUid),
+        where('eventType', 'in', ['APP_SESSION_START', 'APP_SESSION_END']),
+      );
+
+      // 4. Calls & SMS Query
+      const callsQuery = query(
+        collection(db, 'events'),
+        where('syncedByUid', '==', partnerUid),
+        where('eventType', 'in', ['CALL_LOG', 'SMS_RECEIVED', 'SMS_SENT']),
+      );
+
+      const [totalRes, notifsRes, sessionsRes, callsRes] =
+        await Promise.allSettled([
+          getCountFromServer(totalQuery),
+          getCountFromServer(notifsQuery),
+          getCountFromServer(sessionsQuery),
+          getCountFromServer(callsQuery),
+        ]);
+
+      const totalCount =
+        totalRes.status === 'fulfilled' ? totalRes.value.data().count : null;
+      const notifsCount =
+        notifsRes.status === 'fulfilled' ? notifsRes.value.data().count : null;
+
+      let sessionsCount: number | null =
+        sessionsRes.status === 'fulfilled'
+          ? sessionsRes.value.data().count
+          : null;
+
+      if (sessionsCount === null) {
+        try {
+          const [startSnap, endSnap] = await Promise.all([
+            getCountFromServer(
+              query(
+                collection(db, 'events'),
+                where('syncedByUid', '==', partnerUid),
+                where('eventType', '==', 'APP_SESSION_START'),
+              ),
+            ),
+            getCountFromServer(
+              query(
+                collection(db, 'events'),
+                where('syncedByUid', '==', partnerUid),
+                where('eventType', '==', 'APP_SESSION_END'),
+              ),
+            ),
+          ]);
+          sessionsCount = startSnap.data().count + endSnap.data().count;
+        } catch {
+          // ignore fallback error
+        }
+      }
+
+      let callsCount: number | null =
+        callsRes.status === 'fulfilled' ? callsRes.value.data().count : null;
+
+      if (callsCount === null) {
+        try {
+          const [callSnap, smsInSnap, smsOutSnap] = await Promise.all([
+            getCountFromServer(
+              query(
+                collection(db, 'events'),
+                where('syncedByUid', '==', partnerUid),
+                where('eventType', '==', 'CALL_LOG'),
+              ),
+            ),
+            getCountFromServer(
+              query(
+                collection(db, 'events'),
+                where('syncedByUid', '==', partnerUid),
+                where('eventType', '==', 'SMS_RECEIVED'),
+              ),
+            ),
+            getCountFromServer(
+              query(
+                collection(db, 'events'),
+                where('syncedByUid', '==', partnerUid),
+                where('eventType', '==', 'SMS_SENT'),
+              ),
+            ),
+          ]);
+          callsCount =
+            callSnap.data().count +
+            smsInSnap.data().count +
+            smsOutSnap.data().count;
+        } catch {
+          // ignore fallback error
+        }
+      }
+
+      setDbStats({
+        total: totalCount,
+        sessions: sessionsCount,
+        notifications: notifsCount,
+        callsSms: callsCount,
+      });
+    } catch (err) {
+      console.error('Error fetching database counts:', err);
+    }
+  }, [partnerUid]);
+
+  useEffect(() => {
+    void fetchDatabaseCounts();
+  }, [fetchDatabaseCounts]);
 
   // Events stream listener
   useEffect(() => {
@@ -224,6 +362,7 @@ export default function EventsPage() {
           const added = currentIds.filter((id) => !priorIds.has(id));
 
           if (added.length > 0) {
+            void fetchDatabaseCounts();
             setNewEventCount((c) => c + added.length);
             if (newEventTimeoutRef.current !== null) {
               clearTimeout(newEventTimeoutRef.current);
@@ -387,51 +526,73 @@ export default function EventsPage() {
 
   // Memoized stats
   const stats: StatItem[] = useMemo(() => {
-    let sessions = 0;
-    let notifs = 0;
-    let callsSms = 0;
+    let localSessions = 0;
+    let localNotifs = 0;
+    let localCallsSms = 0;
 
     for (const e of filteredEvents) {
       if (e.eventType === 'APP_SESSION_START' || e.eventType === 'APP_SESSION_END') {
-        sessions++;
+        localSessions++;
       } else if (e.eventType === 'NOTIFICATION_POSTED') {
-        notifs++;
+        localNotifs++;
       } else if (e.eventType === 'CALL_LOG' || e.eventType === 'SMS_RECEIVED' || e.eventType === 'SMS_SENT') {
-        callsSms++;
+        localCallsSms++;
       }
     }
+
+    const hasActiveFilters =
+      filters.eventTypes.length > 0 ||
+      Boolean(filters.appLabel) ||
+      filters.dateRange !== 'all' ||
+      filters.search.trim() !== '';
+
+    const totalVal = hasActiveFilters
+      ? filteredEvents.length
+      : dbStats.total ?? filteredEvents.length;
+
+    const sessionsVal = hasActiveFilters
+      ? localSessions
+      : dbStats.sessions ?? localSessions;
+
+    const notifsVal = hasActiveFilters
+      ? localNotifs
+      : dbStats.notifications ?? localNotifs;
+
+    const callsVal = hasActiveFilters
+      ? localCallsSms
+      : dbStats.callsSms ?? localCallsSms;
 
     return [
       {
         label: 'Total Activity',
-        value: filteredEvents.length,
+        value: totalVal,
         icon: <Activity className="w-4 h-4 text-emerald-400" />,
         gradient: 'from-emerald-500/10 to-transparent',
         accent: 'border-emerald-500/25',
       },
       {
         label: 'Sessions',
-        value: sessions,
+        value: sessionsVal,
         icon: <Monitor className="w-4 h-4 text-sky-400" />,
         gradient: 'from-sky-500/10 to-transparent',
         accent: 'border-sky-500/25',
       },
       {
         label: 'Notifications',
-        value: notifs,
+        value: notifsVal,
         icon: <Bell className="w-4 h-4 text-purple-400" />,
         gradient: 'from-purple-500/10 to-transparent',
         accent: 'border-purple-500/25',
       },
       {
         label: 'Calls & SMS',
-        value: callsSms,
+        value: callsVal,
         icon: <Smartphone className="w-4 h-4 text-amber-400" />,
         gradient: 'from-amber-500/10 to-transparent',
         accent: 'border-amber-500/25',
       },
     ];
-  }, [filteredEvents]);
+  }, [filteredEvents, dbStats, filters]);
 
   // Slide / Slice: latest 5 images by default, expandable by 5 on swipe/click
   const displayedImages = useMemo(() => {
@@ -488,7 +649,10 @@ export default function EventsPage() {
           </div>
 
           <button
-            onClick={() => setEventsLimit((p) => p)}
+            onClick={() => {
+              void fetchDatabaseCounts();
+              setEventsLimit(25);
+            }}
             className="btn-modern-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
@@ -516,7 +680,7 @@ export default function EventsPage() {
                   {s.label}
                 </p>
                 <p className="text-xl sm:text-2xl font-bold font-mono text-white mt-0.5">
-                  {s.value}
+                  {typeof s.value === 'number' ? s.value.toLocaleString() : s.value}
                 </p>
               </div>
               <div className="p-2 rounded-xl bg-white/[0.05]">
