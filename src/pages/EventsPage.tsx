@@ -116,13 +116,27 @@ export default function EventsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const partnerUid = user ? PARTNER_UIDS[user.uid] ?? null : null;
-  const partnerName =
-    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3' ? 'Amisha' : 'Parth';
-  const partnerEmail =
-    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3'
-      ? 'amisha@gmail.com'
-      : 'parth@gmail.com';
+  const isParth =
+    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3' ||
+    user?.email?.toLowerCase() === 'parth@gmail.com';
+  const isAmisha =
+    user?.uid === 'dVQspayOWZavC1j8FHqZk4ANX3u2' ||
+    user?.email?.toLowerCase() === 'amisha@gmail.com';
+
+  const partnerUid = isParth
+    ? 'dVQspayOWZavC1j8FHqZk4ANX3u2'
+    : isAmisha
+    ? 'dicrDfK5OphttPlhKs5rBVUqNnC3'
+    : user
+    ? PARTNER_UIDS[user.uid] ?? null
+    : null;
+
+  const partnerName = isParth ? 'Amisha' : isAmisha ? 'Parth' : 'Partner';
+  const partnerEmail = isParth
+    ? 'amisha@gmail.com'
+    : isAmisha
+    ? 'parth@gmail.com'
+    : 'partner@example.com';
 
   const [events, setEvents] = useState<TrackerEvent[]>([]);
   const [loading, setLoading] = useState(true);
