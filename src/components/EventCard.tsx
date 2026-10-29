@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   ChevronRight,
@@ -135,10 +136,9 @@ const EVENT_CONFIG: Record<
   },
 };
 
-export default function EventCard({
+function EventCardComponent({
   event,
   onClick,
-  index = 0,
 }: EventCardProps) {
   const config = EVENT_CONFIG[event.eventType] || {
     bg: 'bg-slate-500/10',
@@ -150,7 +150,7 @@ export default function EventCard({
 
   const dateObj = new Date(event.observedAtUtc);
   const relativeTime = formatDistanceToNow(dateObj, { addSuffix: true });
-  const exactTime = format(dateObj, 'hh:mm:ss a');
+  const exactTime = format(dateObj, 'hh:mm a');
   const hasBody = Boolean(event.body && event.body.trim().length > 0);
   const hasTitle = Boolean(event.title && event.title.trim().length > 0);
   const extra = parseExtra(event.extraJson);
@@ -167,36 +167,33 @@ export default function EventCard({
         }
       }}
       className={clsx(
-        'group relative w-full flex items-start gap-4 p-4 sm:p-5 rounded-2xl',
-        'bg-[#101827]/70 hover:bg-[#162238]/90',
-        'border border-white/[0.06] hover:border-white/[0.14]',
-        'transition-all duration-200 cursor-pointer',
-        'hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5',
-        'animate-fade-scale'
+        'optimized-card group relative w-full flex items-start gap-3.5 p-3.5 sm:p-4 rounded-2xl',
+        'bg-[#0E1524] hover:bg-[#151F32]',
+        'border border-white/[0.07] hover:border-white/[0.15]',
+        'transition-colors duration-150 cursor-pointer',
+        'active:scale-[0.99] select-none'
       )}
-      style={{ animationDelay: `${Math.min(index * 25, 250)}ms` }}
     >
       {/* App Icon */}
       <AppIcon
         packageName={event.packageName}
         appLabel={event.appLabel}
-        size={46}
+        size={44}
       />
 
       {/* Content Area */}
       <div className="flex-1 min-w-0">
         
         {/* Header Row */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center flex-wrap gap-2 min-w-0">
-            <span className="font-semibold text-white text-sm sm:text-base tracking-tight truncate">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center flex-wrap gap-1.5 min-w-0">
+            <span className="font-semibold text-white text-sm tracking-tight truncate">
               {event.appLabel || event.packageName || 'System Event'}
             </span>
             
-            {/* Tag Badge */}
             <span
               className={clsx(
-                'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border',
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border',
                 config.bg,
                 config.border,
                 config.text
@@ -206,41 +203,39 @@ export default function EventCard({
               <span>{config.label}</span>
             </span>
 
-            {/* Sub-label / Package */}
             {event.packageName && (
-              <span className="text-[11px] text-slate-400 font-mono hidden md:inline truncate max-w-[200px]">
+              <span className="text-[10px] text-slate-400 font-mono hidden lg:inline truncate max-w-[160px]">
                 {event.packageName}
               </span>
             )}
           </div>
 
-          {/* Time Badge */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono shrink-0 ml-auto">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono shrink-0 ml-auto">
+            <Clock className="w-3 h-3 text-slate-400" />
             <span title={dateObj.toISOString()}>{relativeTime}</span>
             <span className="text-slate-400 hidden sm:inline">• {exactTime}</span>
-            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all duration-200 ml-1" />
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-colors ml-0.5" />
           </div>
         </div>
 
         {/* Title */}
         {hasTitle && (
-          <p className="mt-2 text-sm font-medium text-slate-200 tracking-tight">
+          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-200 tracking-tight">
             {event.title}
           </p>
         )}
 
         {/* Body Text */}
         {hasBody && (
-          <div className="mt-1.5 text-xs sm:text-sm text-slate-300 bg-white/[0.03] p-2.5 rounded-xl border border-white/[0.04] line-clamp-2 leading-relaxed">
+          <div className="mt-1 text-xs text-slate-300 bg-white/[0.03] p-2 rounded-xl border border-white/[0.04] line-clamp-2 leading-relaxed">
             {event.body}
           </div>
         )}
 
         {/* Duration / Session Extra */}
         {event.durationSeconds !== null && event.durationSeconds !== undefined && (
-          <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-mono text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20">
-            <span>⏱️ Active Duration:</span>
+          <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-mono text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-md border border-sky-500/20">
+            <span>Duration:</span>
             <span className="font-semibold">{event.durationSeconds}s</span>
           </div>
         )}
@@ -248,13 +243,17 @@ export default function EventCard({
         {/* Tracking Stop / Resume Indicators */}
         {(event.eventType === 'TRACKING_STOPPED' ||
           event.eventType === 'TRACKING_RESUMED') && (
-          <div className="mt-2 text-xs font-mono text-slate-300 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08] inline-block">
+          <div className="mt-1.5 text-[11px] font-mono text-slate-300 bg-white/[0.04] px-2.5 py-1 rounded-md border border-white/[0.08] inline-block">
             {event.eventType === 'TRACKING_STOPPED'
-              ? `🔴 Tracking halted by: ${extra.stoppedBy || 'Admin'}`
-              : `🟢 Tracking resumed by: ${extra.resumedBy || 'Admin'}`}
+              ? `🔴 Stopped by: ${extra.stoppedBy || 'Admin'}`
+              : `🟢 Resumed by: ${extra.resumedBy || 'Admin'}`}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+export default memo(EventCardComponent, (prev, next) => {
+  return prev.event.id === next.event.id && prev.event.observedAtUtc === next.event.observedAtUtc;
+});
