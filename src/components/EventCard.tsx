@@ -29,128 +29,93 @@ interface EventCardProps {
 const EVENT_CONFIG: Record<
   EventType,
   {
-    bg: string;
-    border: string;
-    text: string;
+    badge: string;
     icon: React.ReactNode;
     label: string;
   }
 > = {
   APP_SESSION_START: {
-    bg: 'bg-sky-500/10',
-    border: 'border-sky-500/30',
-    text: 'text-sky-400',
-    icon: <Monitor className="w-3.5 h-3.5" />,
-    label: 'Session Start',
+    badge: 'bg-[#eff8ff] text-[#175cd3] border-[#d1e9ff]',
+    icon: <Monitor className="h-3 w-3" />,
+    label: 'Session start',
   },
   APP_SESSION_END: {
-    bg: 'bg-sky-500/10',
-    border: 'border-sky-500/30',
-    text: 'text-sky-400',
-    icon: <Monitor className="w-3.5 h-3.5" />,
-    label: 'Session End',
+    badge: 'bg-[#eff8ff] text-[#175cd3] border-[#d1e9ff]',
+    icon: <Monitor className="h-3 w-3" />,
+    label: 'Session end',
   },
   NOTIFICATION_POSTED: {
-    bg: 'bg-purple-500/10',
-    border: 'border-purple-500/30',
-    text: 'text-purple-300',
-    icon: <Bell className="w-3.5 h-3.5" />,
+    badge: 'bg-[#fffaeb] text-[#b54708] border-[#fedf89]',
+    icon: <Bell className="h-3 w-3" />,
     label: 'Notification',
   },
   SMS_RECEIVED: {
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/30',
-    text: 'text-emerald-400',
-    icon: <MessageSquare className="w-3.5 h-3.5" />,
-    label: 'SMS Received',
+    badge: 'bg-[#ecfdf3] text-[#067647] border-[#abefc6]',
+    icon: <MessageSquare className="h-3 w-3" />,
+    label: 'SMS received',
   },
   SMS_SENT: {
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/30',
-    text: 'text-emerald-400',
-    icon: <Mail className="w-3.5 h-3.5" />,
-    label: 'SMS Sent',
+    badge: 'bg-[#ecfdf3] text-[#067647] border-[#abefc6]',
+    icon: <Mail className="h-3 w-3" />,
+    label: 'SMS sent',
   },
   CALL_LOG: {
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/30',
-    text: 'text-amber-400',
-    icon: <Phone className="w-3.5 h-3.5" />,
-    label: 'Call Log',
+    badge: 'bg-[#fff6ed] text-[#b54708] border-[#f9dbaf]',
+    icon: <Phone className="h-3 w-3" />,
+    label: 'Call',
   },
   PACKAGE_ADDED: {
-    bg: 'bg-teal-500/10',
-    border: 'border-teal-500/30',
-    text: 'text-teal-400',
-    icon: <Box className="w-3.5 h-3.5" />,
-    label: 'App Installed',
+    badge: 'bg-[#f4f3ff] text-[#5925dc] border-[#d9d6fe]',
+    icon: <Box className="h-3 w-3" />,
+    label: 'App installed',
   },
   PACKAGE_REMOVED: {
-    bg: 'bg-rose-500/10',
-    border: 'border-rose-500/30',
-    text: 'text-rose-400',
-    icon: <Box className="w-3.5 h-3.5" />,
-    label: 'App Removed',
+    badge: 'bg-[#fef3f2] text-[#b42318] border-[#fecdca]',
+    icon: <Box className="h-3 w-3" />,
+    label: 'App removed',
   },
   PACKAGE_UPDATED: {
-    bg: 'bg-cyan-500/10',
-    border: 'border-cyan-500/30',
-    text: 'text-cyan-400',
-    icon: <Box className="w-3.5 h-3.5" />,
-    label: 'App Updated',
+    badge: 'bg-[#eef4fb] text-[#2f5d8a] border-[#c7d7ea]',
+    icon: <Box className="h-3 w-3" />,
+    label: 'App updated',
   },
   DEVICE_BOOT: {
-    bg: 'bg-rose-500/10',
-    border: 'border-rose-500/30',
-    text: 'text-rose-400',
-    icon: <Zap className="w-3.5 h-3.5" />,
-    label: 'Device Boot',
+    badge: 'bg-[#fef3f2] text-[#b42318] border-[#fecdca]',
+    icon: <Zap className="h-3 w-3" />,
+    label: 'Device boot',
   },
   INVENTORY_SNAPSHOT: {
-    bg: 'bg-slate-500/10',
-    border: 'border-slate-500/30',
-    text: 'text-slate-300',
-    icon: <Database className="w-3.5 h-3.5" />,
+    badge: 'bg-[#f3f1ec] text-[#6e6a63] border-[#e7e3db]',
+    icon: <Database className="h-3 w-3" />,
     label: 'Inventory',
   },
   ACCESSIBILITY_EVENT: {
-    bg: 'bg-indigo-500/10',
-    border: 'border-indigo-500/30',
-    text: 'text-indigo-400',
-    icon: <AlertTriangle className="w-3.5 h-3.5" />,
+    badge: 'bg-[#f4f3ff] text-[#5925dc] border-[#d9d6fe]',
+    icon: <AlertTriangle className="h-3 w-3" />,
     label: 'Accessibility',
   },
   TRACKING_STOPPED: {
-    bg: 'bg-rose-950/40',
-    border: 'border-rose-500/50',
-    text: 'text-rose-300',
-    icon: <PauseCircle className="w-3.5 h-3.5" />,
-    label: 'Tracking Stopped',
+    badge: 'bg-[#fef3f2] text-[#b42318] border-[#fecdca]',
+    icon: <PauseCircle className="h-3 w-3" />,
+    label: 'Tracking stopped',
   },
   TRACKING_RESUMED: {
-    bg: 'bg-emerald-950/40',
-    border: 'border-emerald-500/50',
-    text: 'text-emerald-300',
-    icon: <PlayCircle className="w-3.5 h-3.5" />,
-    label: 'Tracking Resumed',
+    badge: 'bg-[#ecfdf3] text-[#067647] border-[#abefc6]',
+    icon: <PlayCircle className="h-3 w-3" />,
+    label: 'Tracking resumed',
   },
 };
 
-function EventCardComponent({
-  event,
-  onClick,
-}: EventCardProps) {
+function EventCardComponent({ event, onClick }: EventCardProps) {
   const config = EVENT_CONFIG[event.eventType] || {
-    bg: 'bg-slate-500/10',
-    border: 'border-slate-500/30',
-    text: 'text-slate-300',
-    icon: <AlertTriangle className="w-3.5 h-3.5" />,
+    badge: 'bg-[#f3f1ec] text-[#6e6a63] border-[#e7e3db]',
+    icon: <AlertTriangle className="h-3 w-3" />,
     label: event.eventType.replace(/_/g, ' '),
   };
 
   const dateObj = new Date(event.observedAtUtc);
   const relativeTime = formatDistanceToNow(dateObj, { addSuffix: true });
-  const exactTime = format(dateObj, 'hh:mm a');
+  const exactTime = format(dateObj, 'h:mm a');
   const hasBody = Boolean(event.body && event.body.trim().length > 0);
   const hasTitle = Boolean(event.title && event.title.trim().length > 0);
   const extra = parseExtra(event.extraJson);
@@ -167,36 +132,28 @@ function EventCardComponent({
         }
       }}
       className={clsx(
-        'optimized-card group relative w-full flex items-start gap-3.5 p-3.5 sm:p-4 rounded-2xl',
-        'bg-[#0E1524] hover:bg-[#151F32]',
-        'border border-white/[0.07] hover:border-white/[0.15]',
-        'transition-colors duration-150 cursor-pointer',
-        'active:scale-[0.99] select-none'
+        'optimized-card group relative flex w-full items-start gap-3.5 rounded-2xl border border-[#e7e3db] bg-white p-3.5',
+        'transition-all duration-150 hover:border-[#d8d3c8] hover:shadow-[0_10px_28px_-20px_rgba(29,27,24,0.35)]',
+        'cursor-pointer select-none active:scale-[0.995] sm:p-4',
       )}
     >
-      {/* App Icon */}
       <AppIcon
         packageName={event.packageName}
         appLabel={event.appLabel}
-        size={44}
+        size={42}
       />
 
-      {/* Content Area */}
-      <div className="flex-1 min-w-0">
-        
-        {/* Header Row */}
+      <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center flex-wrap gap-1.5 min-w-0">
-            <span className="font-semibold text-white text-sm tracking-tight truncate">
-              {event.appLabel || event.packageName || 'System Event'}
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="truncate text-[13.5px] font-semibold tracking-tight text-[#1d1b18]">
+              {event.appLabel || event.packageName || 'System event'}
             </span>
-            
+
             <span
               className={clsx(
-                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border',
-                config.bg,
-                config.border,
-                config.text
+                'badge-soft border',
+                config.badge,
               )}
             >
               {config.icon}
@@ -204,49 +161,45 @@ function EventCardComponent({
             </span>
 
             {event.packageName && (
-              <span className="text-[10px] text-slate-400 font-mono hidden lg:inline truncate max-w-[160px]">
+              <span className="hidden max-w-[180px] truncate font-mono text-[10px] text-[#96918a] lg:inline">
                 {event.packageName}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono shrink-0 ml-auto">
-            <Clock className="w-3 h-3 text-slate-400" />
+          <div className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10.5px] text-[#96918a]">
+            <Clock className="h-3 w-3" />
             <span title={dateObj.toISOString()}>{relativeTime}</span>
-            <span className="text-slate-400 hidden sm:inline">• {exactTime}</span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-colors ml-0.5" />
+            <span className="hidden sm:inline">· {exactTime}</span>
+            <ChevronRight className="ml-0.5 h-3.5 w-3.5 text-[#c9c3b6] transition-colors group-hover:text-[#1f5c4a]" />
           </div>
         </div>
 
-        {/* Title */}
         {hasTitle && (
-          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-200 tracking-tight">
+          <p className="mt-1 text-xs font-medium tracking-tight text-[#3f3b35] sm:text-[13px]">
             {event.title}
           </p>
         )}
 
-        {/* Body Text */}
         {hasBody && (
-          <div className="mt-1 text-xs text-slate-300 bg-white/[0.03] p-2 rounded-xl border border-white/[0.04] line-clamp-2 leading-relaxed">
+          <div className="mt-1.5 line-clamp-2 rounded-xl border border-[#f0eee8] bg-[#faf9f7] p-2 text-xs leading-relaxed text-[#6e6a63]">
             {event.body}
           </div>
         )}
 
-        {/* Duration / Session Extra */}
         {event.durationSeconds !== null && event.durationSeconds !== undefined && (
-          <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-mono text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-md border border-sky-500/20">
-            <span>Duration:</span>
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-[#d1e9ff] bg-[#eff8ff] px-2 py-0.5 font-mono text-[10.5px] text-[#175cd3]">
+            <span>Duration</span>
             <span className="font-semibold">{event.durationSeconds}s</span>
           </div>
         )}
 
-        {/* Tracking Stop / Resume Indicators */}
         {(event.eventType === 'TRACKING_STOPPED' ||
           event.eventType === 'TRACKING_RESUMED') && (
-          <div className="mt-1.5 text-[11px] font-mono text-slate-300 bg-white/[0.04] px-2.5 py-1 rounded-md border border-white/[0.08] inline-block">
+          <div className="mt-1.5 inline-block rounded-md border border-[#e7e3db] bg-[#faf9f7] px-2.5 py-1 font-mono text-[10.5px] text-[#6e6a63]">
             {event.eventType === 'TRACKING_STOPPED'
-              ? `🔴 Stopped by: ${extra.stoppedBy || 'Admin'}`
-              : `🟢 Resumed by: ${extra.resumedBy || 'Admin'}`}
+              ? `Stopped by ${extra.stoppedBy || 'admin'}`
+              : `Resumed by ${extra.resumedBy || 'admin'}`}
           </div>
         )}
       </div>
@@ -255,5 +208,8 @@ function EventCardComponent({
 }
 
 export default memo(EventCardComponent, (prev, next) => {
-  return prev.event.id === next.event.id && prev.event.observedAtUtc === next.event.observedAtUtc;
+  return (
+    prev.event.id === next.event.id &&
+    prev.event.observedAtUtc === next.event.observedAtUtc
+  );
 });

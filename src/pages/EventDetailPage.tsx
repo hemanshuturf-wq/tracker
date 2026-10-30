@@ -40,20 +40,20 @@ interface FieldConfig {
 }
 
 const FIELD_CONFIG: FieldConfig[] = [
-  { key: 'eventId', label: 'Event Identifier', icon: <Hash className="w-4 h-4" />, copyable: true, monospace: true },
-  { key: 'deviceId', label: 'Device Identifier', icon: <Smartphone className="w-4 h-4" />, copyable: true, monospace: true },
-  { key: 'eventType', label: 'Event Classification', icon: <Tag className="w-4 h-4" />, badge: true },
-  { key: 'packageName', label: 'Package Name', icon: <Globe className="w-4 h-4" />, copyable: true, monospace: true, optional: true },
-  { key: 'appLabel', label: 'Application Label', icon: <Layers className="w-4 h-4" />, optional: true },
-  { key: 'observedAtUtc', label: 'Observed Timestamp (UTC)', icon: <Clock className="w-4 h-4" />, date: true },
-  { key: 'sessionStartUtc', label: 'Session Start (UTC)', icon: <Clock className="w-4 h-4" />, date: true, optional: true },
-  { key: 'sessionEndUtc', label: 'Session End (UTC)', icon: <Clock className="w-4 h-4" />, date: true, optional: true },
-  { key: 'durationSeconds', label: 'Duration Elapsed', icon: <Clock className="w-4 h-4" />, number: true, optional: true },
-  { key: 'title', label: 'Notification / Event Title', icon: <FileText className="w-4 h-4" />, multiline: true, optional: true },
-  { key: 'body', label: 'Payload Message / Body', icon: <FileText className="w-4 h-4" />, multiline: true, optional: true },
-  { key: 'extraJson', label: 'Metadata Payload (JSON)', icon: <Database className="w-4 h-4" />, json: true, optional: true },
-  { key: 'schemaVersion', label: 'Data Schema Version', icon: <Shield className="w-4 h-4" />, number: true },
-  { key: 'syncedByUid', label: 'Synced By UID', icon: <User className="w-4 h-4" />, copyable: true, monospace: true },
+  { key: 'eventId', label: 'Event identifier', icon: <Hash className="h-4 w-4" />, copyable: true, monospace: true },
+  { key: 'deviceId', label: 'Device identifier', icon: <Smartphone className="h-4 w-4" />, copyable: true, monospace: true },
+  { key: 'eventType', label: 'Event type', icon: <Tag className="h-4 w-4" />, badge: true },
+  { key: 'packageName', label: 'Package name', icon: <Globe className="h-4 w-4" />, copyable: true, monospace: true, optional: true },
+  { key: 'appLabel', label: 'Application', icon: <Layers className="h-4 w-4" />, optional: true },
+  { key: 'observedAtUtc', label: 'Observed at', icon: <Clock className="h-4 w-4" />, date: true },
+  { key: 'sessionStartUtc', label: 'Session start', icon: <Clock className="h-4 w-4" />, date: true, optional: true },
+  { key: 'sessionEndUtc', label: 'Session end', icon: <Clock className="h-4 w-4" />, date: true, optional: true },
+  { key: 'durationSeconds', label: 'Duration', icon: <Clock className="h-4 w-4" />, number: true, optional: true },
+  { key: 'title', label: 'Title', icon: <FileText className="h-4 w-4" />, multiline: true, optional: true },
+  { key: 'body', label: 'Body', icon: <FileText className="h-4 w-4" />, multiline: true, optional: true },
+  { key: 'extraJson', label: 'Metadata', icon: <Database className="h-4 w-4" />, json: true, optional: true },
+  { key: 'schemaVersion', label: 'Schema version', icon: <Shield className="h-4 w-4" />, number: true },
+  { key: 'syncedByUid', label: 'Synced by UID', icon: <User className="h-4 w-4" />, copyable: true, monospace: true },
 ];
 
 function formatValue(event: TrackerEvent, field: FieldConfig): { value: string; isEmpty: boolean } {
@@ -100,17 +100,17 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  const isParth = user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3';
   const partnerUid = user
-    ? user.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2'
-      ? 'YLf3pl5On7S68Nnvlh50q4TP7Dv2'
-      : 'y22eIUbwtxdmZFRtDSKabmgXrWQ2'
+    ? isParth
+      ? 'dVQspayOWZavC1j8FHqZk4ANX3u2'
+      : 'dicrDfK5OphttPlhKs5rBVUqNnC3'
     : null;
-  const partnerName =
-    user?.uid === 'y22eIUbwtxdmZFRtDSKabmgXrWQ2' ? 'Amisha' : 'Parth';
+  const partnerName = isParth ? 'Amisha' : 'Parth';
 
   useEffect(() => {
     if (!id || !partnerUid) {
-      setError('Event identifier missing or partner not recognized.');
+      setError('Event identifier missing or family account not recognized.');
       setLoading(false);
       return;
     }
@@ -123,12 +123,12 @@ export default function EventDetailPage() {
         if (snap.exists()) {
           const data = snap.data() as TrackerEvent;
           if (data.syncedByUid !== partnerUid) {
-            setError('This event does not originate from your authorized partner.');
+            setError('This event does not belong to your authorized family account.');
           } else {
             setEvent({ ...data, id: snap.id });
           }
         } else {
-          setError('Event not found or has been purged.');
+          setError('Event not found or has been removed.');
         }
       } catch (err: any) {
         console.error('Fetch event detail failed:', err);
@@ -149,12 +149,12 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#080C14] text-slate-100">
+      <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18]">
         <Header partnerName={partnerName} />
-        <main className="flex-1 pt-24 pb-12 flex items-center justify-center">
-          <div className="max-w-2xl w-full mx-auto px-4 space-y-4">
+        <main className="mx-auto w-full max-w-3xl px-4 pb-12 pt-[96px] sm:px-6">
+          <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 rounded-2xl bg-white/[0.03] animate-pulse" />
+              <div key={i} className="skeleton h-16 rounded-2xl" />
             ))}
           </div>
         </main>
@@ -164,21 +164,23 @@ export default function EventDetailPage() {
 
   if (error || !event) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#080C14] text-slate-100">
+      <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18]">
         <Header partnerName={partnerName} />
-        <main className="flex-1 pt-24 pb-12 flex items-center justify-center">
-          <div className="max-w-md w-full mx-auto p-8 rounded-3xl glass-card text-center">
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4 border border-rose-500/30">
-              <AlertCircle className="w-7 h-7" />
+        <main className="mx-auto flex w-full max-w-md flex-col items-center px-4 pb-12 pt-[120px] text-center sm:px-6">
+          <div className="surface-card w-full p-8">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fef3f2] text-[#b42318]">
+              <AlertCircle className="h-6 w-6" />
             </div>
-            <h2 className="text-lg font-bold text-white mb-1">Telemetry Record Not Found</h2>
-            <p className="text-xs text-slate-400 mb-6">{error || 'This event could not be loaded.'}</p>
+            <h2 className="font-display text-2xl tracking-tight">Record not found</h2>
+            <p className="mt-2 text-sm text-[#6e6a63]">
+              {error || 'This event could not be loaded.'}
+            </p>
             <button
               onClick={() => navigate('/')}
-              className="btn-modern-primary text-xs py-2 px-4 cursor-pointer"
+              className="btn-primary mt-6 px-4 py-2 text-xs"
             >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Return to Dashboard</span>
+              <ChevronLeft className="h-4 w-4" />
+              <span>Back to dashboard</span>
             </button>
           </div>
         </main>
@@ -187,115 +189,109 @@ export default function EventDetailPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#080C14] text-slate-100">
+    <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18]">
       <Header partnerName={partnerName} />
 
-      <main className="flex-1 pt-22 pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          {/* Breadcrumb Nav */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => navigate('/')}
-              className="btn-modern-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Back to Activity Feed</span>
-            </button>
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-[92px] sm:px-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="btn-secondary px-3 py-2 text-xs"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>Back to activity</span>
+          </button>
 
-            <span className="text-xs font-mono text-slate-400 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08]">
-              {partnerName}'s Record
-            </span>
+          <span className="rounded-full border border-[#e7e3db] bg-white px-3 py-1 text-[10px] font-medium text-[#6e6a63]">
+            {partnerName}&apos;s record
+          </span>
+        </div>
+
+        <article className="surface-card overflow-hidden">
+          <div className="flex items-center gap-4 border-b border-[#f0eee8] bg-[#fbfaf8] p-5 sm:p-6">
+            <AppIcon
+              packageName={event.packageName}
+              appLabel={event.appLabel}
+              size={52}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <h1 className="truncate font-display text-2xl tracking-tight">
+                  {event.appLabel || event.packageName || 'System event'}
+                </h1>
+                <span className="rounded-full border border-[#bcd6cb] bg-[#e9f1ed] px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#1f5c4a]">
+                  {event.eventType.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <p className="font-mono text-[11px] text-[#96918a]">
+                Recorded{' '}
+                {formatDistanceToNow(new Date(event.observedAtUtc), {
+                  addSuffix: true,
+                })}
+              </p>
+            </div>
           </div>
 
-          {/* Event Inspector Card */}
-          <div className="glass-card rounded-3xl border border-white/[0.08] overflow-hidden shadow-2xl">
-            
-            {/* Inspector Header */}
-            <div className="p-6 sm:p-8 bg-gradient-to-r from-white/[0.03] to-white/[0.01] border-b border-white/[0.08] flex items-center gap-5">
-              <AppIcon
-                packageName={event.packageName}
-                appLabel={event.appLabel}
-                size={56}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate">
-                    {event.appLabel || event.packageName || 'System Event'}
-                  </h1>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
-                    {event.eventType.replace(/_/g, ' ')}
-                  </span>
-                </div>
-                <p className="text-xs font-mono text-slate-400">
-                  Recorded {formatDistanceToNow(new Date(event.observedAtUtc), { addSuffix: true })}
-                </p>
-              </div>
-            </div>
+          <div className="divide-y divide-[#f3f1ec]">
+            {FIELD_CONFIG.map((field) => {
+              const { value, isEmpty } = formatValue(event, field);
+              if (field.optional && isEmpty) return null;
 
-            {/* Field Breakdown Grid */}
-            <div className="p-6 sm:p-8 space-y-4">
-              {FIELD_CONFIG.map((field) => {
-                const { value, isEmpty } = formatValue(event, field);
-                if (field.optional && isEmpty) return null;
+              return (
+                <div
+                  key={field.key}
+                  className="flex items-start gap-4 p-4 transition-colors hover:bg-[#fbfaf8] sm:p-5"
+                >
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f1ec] text-[#6e6a63]">
+                    {field.icon}
+                  </div>
 
-                return (
-                  <div
-                    key={field.key}
-                    className="p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] hover:border-white/[0.08] transition-all flex items-start gap-4 group"
-                  >
-                    <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] text-slate-400 shrink-0 mt-0.5">
-                      {field.icon}
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#96918a]">
+                        {field.label}
+                      </span>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
-                          {field.label}
-                        </span>
-
-                        {field.copyable && !isEmpty && (
-                          <button
-                            onClick={() => handleCopy(value, field.key)}
-                            className="p-1 rounded-md text-slate-500 hover:text-white transition-colors cursor-pointer"
-                            title="Copy value"
-                          >
-                            {copiedField === field.key ? (
-                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-
-                      {field.json && !isEmpty ? (
-                        <pre className="text-xs font-mono p-3 rounded-xl bg-black/60 border border-white/[0.06] text-cyan-300 overflow-x-auto leading-relaxed">
-                          {value}
-                        </pre>
-                      ) : field.multiline && !isEmpty ? (
-                        <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
-                          {value}
-                        </p>
-                      ) : (
-                        <p
-                          className={clsx(
-                            'text-sm text-slate-200 break-all',
-                            field.monospace && 'font-mono text-xs text-cyan-300'
-                          )}
+                      {field.copyable && !isEmpty && (
+                        <button
+                          onClick={() => handleCopy(value, field.key)}
+                          className="rounded-md p-1 text-[#96918a] hover:bg-[#f3f1ec] hover:text-[#1d1b18]"
+                          title="Copy value"
                         >
-                          {value}
-                        </p>
+                          {copiedField === field.key ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-[#1f5c4a]" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       )}
                     </div>
+
+                    {field.json && !isEmpty ? (
+                      <pre className="overflow-x-auto rounded-xl border border-[#e7e3db] bg-[#fbfaf8] p-3 font-mono text-[11px] leading-relaxed text-[#3f3b35]">
+                        {value}
+                      </pre>
+                    ) : field.multiline && !isEmpty ? (
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#3f3b35]">
+                        {value}
+                      </p>
+                    ) : (
+                      <p
+                        className={clsx(
+                          'break-all text-sm text-[#3f3b35]',
+                          field.monospace &&
+                            'font-mono text-[11.5px] text-[#1f5c4a]',
+                        )}
+                      >
+                        {value}
+                      </p>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-
+                </div>
+              );
+            })}
           </div>
-
-        </div>
+        </article>
       </main>
     </div>
   );

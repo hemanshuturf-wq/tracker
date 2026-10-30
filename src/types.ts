@@ -40,3 +40,23 @@ export interface RemoteImage {
   deviceId: string;
   capturedBy: string;
 }
+
+export interface AppUsageEntry {
+  packageName: string;
+  label: string;
+  seconds: number;
+  rxBytes: number;
+  txBytes: number;
+}
+
+export interface AppUsageDoc {
+  id: string;
+  date: string;
+  syncedByUid?: string;
+  deviceId?: string;
+  apps: AppUsageEntry[];
+  totalSeconds: number;
+  totalRxBytes: number;
+  totalTxBytes: number;
+  updatedAt?: unknown;
+}

@@ -4,7 +4,7 @@ import {
   ChevronDown,
   X,
   Search,
-  Filter,
+  SlidersHorizontal,
   Layers,
   RotateCcw,
 } from 'lucide-react';
@@ -43,8 +43,8 @@ function EventFiltersComponent({
   const uniqueApps = useMemo(() => {
     return Array.from(
       new Set(
-        events.map((e) => e.appLabel).filter((v): v is string => Boolean(v))
-      )
+        events.map((e) => e.appLabel).filter((v): v is string => Boolean(v)),
+      ),
     ).sort();
   }, [events]);
 
@@ -98,35 +98,30 @@ function EventFiltersComponent({
   }, [showTypes, showApps]);
 
   return (
-    <div className="sticky top-16 z-30 py-2.5 mb-5 bg-[#080C14]/95 border-b border-white/[0.08]">
+    <div className="sticky top-[68px] z-30 -mx-3 mb-4 border-b border-[#e7e3db] bg-[#f6f5f2]/95 px-3 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <div className="flex flex-col gap-2.5">
-        
-        {/* Search Bar */}
         <div className="relative w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#96918a]" />
           <input
             type="text"
             value={filters.search}
             onChange={(e) => onChange({ search: e.target.value })}
-            placeholder="Search events, apps, notifications…"
-            className="w-full pl-10 pr-10 py-2 text-sm rounded-xl bg-[#0E1524] border border-white/[0.08] focus:border-cyan-500/50 text-white placeholder-slate-400 outline-none"
+            placeholder="Search activity, apps, notifications…"
+            className="input-field py-2.5 pl-10 pr-10 text-sm"
           />
           {filters.search && (
             <button
               onClick={() => onChange({ search: '' })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-[#96918a] hover:bg-[#f3f1ec] hover:text-[#1d1b18]"
               aria-label="Clear search"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Filter Controls Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center flex-wrap gap-2">
-            
-            {/* Event Types Dropdown */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative" ref={typesRef}>
               <button
                 type="button"
@@ -135,63 +130,63 @@ function EventFiltersComponent({
                   setShowApps(false);
                 }}
                 className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer',
+                  'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors',
                   showTypes || filters.eventTypes.length > 0
-                    ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
-                    : 'bg-white/[0.04] border-white/[0.08] text-slate-300'
+                    ? 'border-[#bcd6cb] bg-[#e9f1ed] text-[#1f5c4a]'
+                    : 'border-[#d8d3c8] bg-white text-[#6e6a63] hover:border-[#c9c3b6] hover:text-[#1d1b18]',
                 )}
               >
-                <Filter className="w-3.5 h-3.5" />
+                <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>Categories</span>
                 {filters.eventTypes.length > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center text-[10px] font-mono font-bold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1f5c4a] text-[9px] font-semibold text-white">
                     {filters.eventTypes.length}
                   </span>
                 )}
                 <ChevronDown
                   className={clsx(
-                    'w-3 h-3 transition-transform',
-                    showTypes && 'rotate-180'
+                    'h-3 w-3 transition-transform',
+                    showTypes && 'rotate-180',
                   )}
                 />
               </button>
 
               {showTypes && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-[#0E1524] rounded-2xl border border-white/[0.12] shadow-2xl p-2.5 z-50">
-                  <div className="px-2 py-1 border-b border-white/[0.08] flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono font-semibold text-slate-400 uppercase">
+                <div className="absolute left-0 top-full z-50 mt-2 w-72 animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2.5 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
+                  <div className="mb-2 flex items-center justify-between border-b border-[#f0eee8] px-2 py-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#96918a]">
                       Categories
                     </span>
                     {filters.eventTypes.length > 0 && (
                       <button
                         onClick={() => onChange({ eventTypes: [] })}
-                        className="text-xs text-cyan-400 hover:underline cursor-pointer"
+                        className="text-[11px] font-medium text-[#1f5c4a] hover:underline"
                       >
                         Reset
                       </button>
                     )}
                   </div>
 
-                  <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="max-h-[300px] space-y-1 overflow-y-auto pr-1">
                     {Object.entries(EVENT_TYPE_GROUPS).map(([groupLabel, types]) => {
                       const selected = isGroupSelected(types);
                       return (
                         <div
                           key={groupLabel}
-                          className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-1.5"
+                          className="rounded-xl border border-[#f0eee8] bg-[#faf9f7] p-1.5"
                         >
                           <button
                             type="button"
                             onClick={() => toggleGroup(types)}
-                            className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-slate-200 hover:bg-white/[0.05] rounded-lg cursor-pointer"
+                            className="flex w-full items-center justify-between rounded-lg px-2 py-1 text-xs font-semibold text-[#3f3b35] hover:bg-white"
                           >
                             <span>{groupLabel}</span>
-                            <span className="text-[10px] font-mono text-slate-400">
-                              {selected ? '✓ All' : `${types.length}`}
+                            <span className="font-mono text-[10px] text-[#96918a]">
+                              {selected ? 'All' : types.length}
                             </span>
                           </button>
 
-                          <div className="mt-1 space-y-0.5 pl-3 border-l border-white/[0.06] ml-2">
+                          <div className="ml-2 mt-1 space-y-0.5 border-l border-[#e7e3db] pl-3">
                             {types.map((type) => {
                               const isChecked = filters.eventTypes.includes(type);
                               return (
@@ -200,10 +195,10 @@ function EventFiltersComponent({
                                   type="button"
                                   onClick={() => toggleEventType(type)}
                                   className={clsx(
-                                    'w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-mono cursor-pointer',
+                                    'flex w-full items-center justify-between rounded-md px-2 py-1 font-mono text-[10.5px]',
                                     isChecked
-                                      ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                                      : 'text-slate-400 hover:text-slate-200'
+                                      ? 'bg-[#e9f1ed] font-semibold text-[#1f5c4a]'
+                                      : 'text-[#6e6a63] hover:bg-white hover:text-[#1d1b18]',
                                   )}
                                 >
                                   <span>{type.replace(/_/g, ' ')}</span>
@@ -220,7 +215,6 @@ function EventFiltersComponent({
               )}
             </div>
 
-            {/* App Filter Dropdown */}
             <div className="relative" ref={appsRef}>
               <button
                 type="button"
@@ -229,29 +223,29 @@ function EventFiltersComponent({
                   setShowTypes(false);
                 }}
                 className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer',
+                  'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors',
                   showApps || filters.appLabel !== null
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                    : 'bg-white/[0.04] border-white/[0.08] text-slate-300'
+                    ? 'border-[#c7d7ea] bg-[#eef4fb] text-[#2f5d8a]'
+                    : 'border-[#d8d3c8] bg-white text-[#6e6a63] hover:border-[#c9c3b6] hover:text-[#1d1b18]',
                 )}
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[120px]">
-                  {filters.appLabel || 'All Apps'}
+                <Layers className="h-3.5 w-3.5" />
+                <span className="max-w-[120px] truncate">
+                  {filters.appLabel || 'All apps'}
                 </span>
                 <ChevronDown
                   className={clsx(
-                    'w-3 h-3 transition-transform',
-                    showApps && 'rotate-180'
+                    'h-3 w-3 transition-transform',
+                    showApps && 'rotate-180',
                   )}
                 />
               </button>
 
               {showApps && (
-                <div className="absolute top-full left-0 mt-2 w-60 bg-[#0E1524] rounded-2xl border border-white/[0.12] shadow-2xl p-2 z-50">
-                  <div className="px-2 py-1 border-b border-white/[0.08] flex items-center justify-between mb-1">
-                    <span className="text-xs font-mono font-semibold text-slate-400 uppercase">
-                      Select App
+                <div className="absolute left-0 top-full z-50 mt-2 w-60 animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
+                  <div className="mb-1 flex items-center justify-between border-b border-[#f0eee8] px-2 py-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#96918a]">
+                      Apps
                     </span>
                     {filters.appLabel && (
                       <button
@@ -259,14 +253,14 @@ function EventFiltersComponent({
                           onChange({ appLabel: null });
                           setShowApps(false);
                         }}
-                        className="text-xs text-emerald-400 hover:underline cursor-pointer"
+                        className="text-[11px] font-medium text-[#2f5d8a] hover:underline"
                       >
                         Clear
                       </button>
                     )}
                   </div>
 
-                  <div className="max-h-[250px] overflow-y-auto pr-1 space-y-0.5">
+                  <div className="max-h-[250px] space-y-0.5 overflow-y-auto pr-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -274,13 +268,13 @@ function EventFiltersComponent({
                         setShowApps(false);
                       }}
                       className={clsx(
-                        'w-full px-2 py-1.5 rounded-lg text-left text-xs font-medium cursor-pointer',
+                        'w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium',
                         filters.appLabel === null
-                          ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
-                          : 'text-slate-300 hover:bg-white/[0.05]'
+                          ? 'bg-[#eef4fb] font-semibold text-[#2f5d8a]'
+                          : 'text-[#6e6a63] hover:bg-[#faf9f7]',
                       )}
                     >
-                      All Applications
+                      All applications
                     </button>
 
                     {uniqueApps.map((app) => (
@@ -292,10 +286,10 @@ function EventFiltersComponent({
                           setShowApps(false);
                         }}
                         className={clsx(
-                          'w-full px-2 py-1.5 rounded-lg text-left text-xs truncate cursor-pointer',
+                          'w-full truncate rounded-lg px-2 py-1.5 text-left text-xs',
                           filters.appLabel === app
-                            ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
-                            : 'text-slate-300 hover:bg-white/[0.05]'
+                            ? 'bg-[#eef4fb] font-semibold text-[#2f5d8a]'
+                            : 'text-[#6e6a63] hover:bg-[#faf9f7]',
                         )}
                       >
                         {app}
@@ -306,8 +300,7 @@ function EventFiltersComponent({
               )}
             </div>
 
-            {/* Date Range Tabs */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="flex items-center gap-0.5 rounded-xl border border-[#e7e3db] bg-white p-0.5">
               {(['all', 'today', '7d', '30d'] as const).map((range) => {
                 const labelMap = { all: 'All', today: 'Today', '7d': '7D', '30d': '30D' };
                 const isActive = filters.dateRange === range;
@@ -317,10 +310,10 @@ function EventFiltersComponent({
                     type="button"
                     onClick={() => onChange({ dateRange: range })}
                     className={clsx(
-                      'px-2 py-1 rounded-lg text-xs font-mono font-medium cursor-pointer',
+                      'rounded-[9px] px-2.5 py-1 text-[11px] font-medium',
                       isActive
-                        ? 'bg-white/[0.12] text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-[#1d1b18] text-white shadow-sm'
+                        : 'text-[#6e6a63] hover:bg-[#f3f1ec]',
                     )}
                   >
                     {labelMap[range]}
@@ -330,17 +323,15 @@ function EventFiltersComponent({
             </div>
           </div>
 
-          {/* Reset Action */}
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="flex items-center gap-1 text-xs font-mono text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-xl cursor-pointer"
+              className="flex items-center gap-1 rounded-xl border border-[#fecdca] bg-[#fef3f2] px-2.5 py-1 text-[11px] font-medium text-[#b42318] hover:bg-[#fee4e2]"
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset</span>
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset filters</span>
             </button>
           )}
-
         </div>
       </div>
     </div>
