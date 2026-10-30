@@ -100,13 +100,19 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const isParth = user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3';
-  const partnerUid = user
-    ? isParth
-      ? 'dVQspayOWZavC1j8FHqZk4ANX3u2'
-      : 'dicrDfK5OphttPlhKs5rBVUqNnC3'
+  const isParth =
+    user?.uid === 'dicrDfK5OphttPlhKs5rBVUqNnC3' ||
+    user?.email?.toLowerCase() === 'parth@gmail.com';
+  const isAmisha =
+    user?.uid === 'dVQspayOWZavC1j8FHqZk4ANX3u2' ||
+    user?.email?.toLowerCase() === 'amisha@gmail.com';
+
+  const partnerUid = isParth
+    ? 'dVQspayOWZavC1j8FHqZk4ANX3u2'
+    : isAmisha
+    ? 'dicrDfK5OphttPlhKs5rBVUqNnC3'
     : null;
-  const partnerName = isParth ? 'Amisha' : 'Parth';
+  const partnerName = isParth ? 'Amisha' : isAmisha ? 'Parth' : 'Partner';
 
   useEffect(() => {
     if (!id || !partnerUid) {
