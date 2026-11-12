@@ -297,7 +297,7 @@ function EventFiltersComponent({
           </div>
 
           {/* Date range segmented buttons */}
-          <div className="flex items-center gap-0.5 rounded-xl border border-[#ebdce3] bg-white p-0.5">
+          <div className="flex items-center gap-0.5 rounded-xl border border-[#ebdce3] bg-white p-0.5 max-w-full overflow-x-auto">
             {(['today', 'yesterday', '7d', 'all'] as const).map((range) => {
               const labelMap = {
                 today: 'Today 🌸',

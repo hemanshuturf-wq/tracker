@@ -86,9 +86,9 @@ export default function UsagePanel({
 
   return (
     <>
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-2 w-full max-w-full min-w-0">
         {/* Screen time / app usage */}
-        <article className="surface-card p-5 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs">
+        <article className="surface-card p-4 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs w-full max-w-full min-w-0 overflow-hidden">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff0f5] text-[#c2185b]">
@@ -244,7 +244,7 @@ export default function UsagePanel({
         </article>
 
         {/* Data tracking: Separated Wi-Fi and Mobile */}
-        <article className="surface-card p-5 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs">
+        <article className="surface-card p-4 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs w-full max-w-full min-w-0 overflow-hidden">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eef4fb] text-[#2f5d8a]">

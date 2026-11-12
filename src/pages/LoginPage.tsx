@@ -74,7 +74,7 @@ export default function LoginPage() {
               </div>
               <div>
                 <p className="font-display text-xl font-semibold tracking-tight">
-                  Activity Pulse
+                  Tracker by Parth
                 </p>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">
                   Family dashboard
@@ -122,7 +122,7 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="font-display text-xl font-semibold tracking-tight text-[#1d1b18]">
-                    Activity Pulse
+                    Tracker by Parth
                   </p>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-[#96918a]">
                     Family dashboard

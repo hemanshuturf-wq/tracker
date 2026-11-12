@@ -741,11 +741,11 @@ export default function EventsPage() {
           )}
 
           {/* DAY SELECTOR TABS */}
-          <div className="mt-4 flex items-center gap-2">
+          <div className="mt-4 flex flex-wrap sm:flex-nowrap items-center gap-2 overflow-x-auto pb-1 w-full max-w-full min-w-0">
             <button
               type="button"
               onClick={() => handleFilterChange({ dateRange: 'today' })}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold shrink-0 transition-all ${
                 filters.dateRange === 'today'
                   ? 'bg-[#c2185b] text-white shadow-xs scale-102'
                   : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
@@ -758,7 +758,7 @@ export default function EventsPage() {
             <button
               type="button"
               onClick={() => handleFilterChange({ dateRange: 'yesterday' })}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold shrink-0 transition-all ${
                 filters.dateRange === 'yesterday'
                   ? 'bg-[#c2185b] text-white shadow-xs scale-102'
                   : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
@@ -771,7 +771,7 @@ export default function EventsPage() {
             <button
               type="button"
               onClick={() => handleFilterChange({ dateRange: 'all' })}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium shrink-0 transition-all ${
                 filters.dateRange === 'all'
                   ? 'bg-[#c2185b] text-white shadow-xs scale-102'
                   : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
@@ -782,7 +782,7 @@ export default function EventsPage() {
           </div>
 
           {/* LOVE NOTES & DAILY MOOD CHECK-IN WIDGET */}
-          <div className="mt-4">
+          <div className="mt-4 w-full max-w-full min-w-0">
             <LoveNotesWidget
               currentUid={user?.uid ?? null}
               partnerUid={partnerUid}
@@ -791,26 +791,26 @@ export default function EventsPage() {
           </div>
 
           {/* STATS TILES */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 w-full max-w-full min-w-0">
             {stats.map((stat) => (
               <div
                 key={stat.label}
-                className="surface-card p-4 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs"
+                className="surface-card p-3.5 sm:p-4 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs min-w-0"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#96918a]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#96918a] truncate">
                     {stat.label}
                   </p>
                   <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-xl ${stat.iconClass}`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-xl shrink-0 ${stat.iconClass}`}
                   >
                     {stat.icon}
                   </span>
                 </div>
-                <p className="font-display mt-2 text-2xl leading-none tracking-tight text-[#1d1b18]">
+                <p className="font-display mt-2 text-2xl leading-none tracking-tight text-[#1d1b18] truncate">
                   {stat.value}
                 </p>
-                <p className="mt-1.5 text-[10.5px] text-[#96918a]">
+                <p className="mt-1.5 text-[10.5px] text-[#96918a] truncate">
                   {stat.detail}
                 </p>
               </div>
@@ -819,7 +819,7 @@ export default function EventsPage() {
         </section>
 
         {/* USAGE SECTION */}
-        <div id="usage" className="mt-8 scroll-mt-24">
+        <div id="usage" className="mt-8 scroll-mt-24 w-full max-w-full min-w-0">
           <div className="mb-3 flex items-end justify-between">
             <div>
               <h2 className="font-display text-2xl tracking-tight text-[#1d1b18] flex items-center gap-2">
@@ -843,7 +843,7 @@ export default function EventsPage() {
         </div>
 
         {/* REMOTE CAMERA & POLAROID SCRAPBOOK SECTION */}
-        <section id="camera" className="mt-8 scroll-mt-24">
+        <section id="camera" className="mt-8 scroll-mt-24 w-full max-w-full min-w-0">
           <div className="mb-3">
             <h2 className="font-display text-2xl tracking-tight text-[#1d1b18] flex items-center gap-2">
               Polaroid Scrapbook & Remote Camera
@@ -854,31 +854,31 @@ export default function EventsPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.5fr]">
-            <div className="surface-card flex flex-col p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.5fr] w-full max-w-full min-w-0">
+            <div className="surface-card flex flex-col p-4 sm:p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs w-full max-w-full min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0f5] text-[#c2185b]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0f5] text-[#c2185b] shrink-0">
                   <Camera className="h-4 w-4" />
                 </span>
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1d1b18]">Snap a photo</h3>
-                  <p className="text-[11px] text-[#96918a]">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-[#1d1b18] truncate">Snap a photo</h3>
+                  <p className="text-[11px] text-[#96918a] truncate">
                     Front selfie or rear lens
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="mt-4 flex flex-col gap-2 w-full min-w-0">
                 <button
                   type="button"
                   onClick={() => void triggerRemoteCamera('front')}
                   disabled={requestingCamera !== null || !partnerUid}
-                  className="w-full py-2.5 text-xs font-semibold rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98 disabled:opacity-50"
+                  className="w-full py-2.5 px-3 text-xs font-semibold rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98 disabled:opacity-50 min-w-0"
                 >
-                  <Aperture className="h-4 w-4" />
-                  <span>Request Front Selfie 🌸</span>
+                  <Aperture className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Request Front Selfie 🌸</span>
                   {requestingCamera === 'front' && (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
                   )}
                 </button>
 
@@ -886,12 +886,12 @@ export default function EventsPage() {
                   type="button"
                   onClick={() => void triggerRemoteCamera('back')}
                   disabled={requestingCamera !== null || !partnerUid}
-                  className="w-full py-2.5 text-xs font-medium rounded-xl border border-[#ebdce3] bg-white text-[#1d1b18] hover:bg-[#fff0f5] hover:text-[#c2185b] flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50"
+                  className="w-full py-2.5 px-3 text-xs font-medium rounded-xl border border-[#ebdce3] bg-white text-[#1d1b18] hover:bg-[#fff0f5] hover:text-[#c2185b] flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50 min-w-0"
                 >
-                  <Camera className="h-4 w-4" />
-                  <span>Request Rear Camera</span>
+                  <Camera className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Request Rear Camera</span>
                   {requestingCamera === 'back' && (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
                   )}
                 </button>
               </div>
@@ -915,19 +915,19 @@ export default function EventsPage() {
             </div>
 
             {/* VINTAGE POLAROID GALLERY */}
-            <div className="surface-card p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Aperture className="h-4 w-4 text-[#c2185b]" />
-                  <h3 className="text-sm font-semibold text-[#1d1b18]">
+            <div className="surface-card p-4 sm:p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs w-full max-w-full min-w-0 overflow-hidden">
+              <div className="mb-3 flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Aperture className="h-4 w-4 text-[#c2185b] shrink-0" />
+                  <h3 className="text-sm font-semibold text-[#1d1b18] truncate">
                     Shared Polaroid Album
                   </h3>
-                  <span className="font-mono text-[10px] text-[#96918a]">
+                  <span className="font-mono text-[10px] text-[#96918a] shrink-0">
                     {displayedImages.length} of {remoteImages.length}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   {remoteLoading && (
                     <RefreshCw className="mr-1 h-3 w-3 animate-spin text-[#c2185b]" />
                   )}
@@ -969,19 +969,19 @@ export default function EventsPage() {
               ) : (
                 <div
                   ref={galleryRef}
-                  className="flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto pb-3 pt-2 px-1"
+                  className="flex snap-x snap-mandatory items-stretch gap-3 sm:gap-4 overflow-x-auto pb-3 pt-2 px-1 w-full max-w-full min-w-0"
                   style={{ scrollbarWidth: 'thin' }}
                 >
                   {displayedImages.map((img, idx) => (
                     <div
                       key={img.id}
-                      className="group relative w-40 shrink-0 snap-start rounded-md border border-[#f0e0e6] bg-white p-2 pb-3 shadow-[0_10px_25px_-8px_rgba(194,24,91,0.15)] sm:w-44 transition-transform hover:scale-102 hover:rotate-0"
+                      className="group relative w-32 sm:w-44 shrink-0 snap-start rounded-md border border-[#f0e0e6] bg-white p-2 pb-3 shadow-[0_10px_25px_-8px_rgba(194,24,91,0.15)] transition-transform hover:scale-102 hover:rotate-0"
                       style={{
                         transform: idx % 2 === 0 ? 'rotate(-1.5deg)' : 'rotate(1.5deg)',
                       }}
                     >
                       {/* Washi tape sticker */}
-                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-3 bg-[#ffb2cc]/80 rounded-xs rotate-[-2deg] pointer-events-none shadow-2xs" />
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 sm:w-10 h-2.5 sm:h-3 bg-[#ffb2cc]/80 rounded-xs rotate-[-2deg] pointer-events-none shadow-2xs" />
 
                       <div className="relative aspect-square overflow-hidden rounded-xs bg-[#fdeef3]">
                         <img
@@ -991,15 +991,15 @@ export default function EventsPage() {
                           loading="lazy"
                           decoding="async"
                         />
-                        <span className="absolute left-1.5 top-1.5 rounded-md bg-[#c2185b]/80 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-white">
+                        <span className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 rounded-md bg-[#c2185b]/80 px-1 sm:px-1.5 py-0.5 font-mono text-[8.5px] sm:text-[9px] font-medium uppercase tracking-wide text-white">
                           {img.lensFacing === 'front' ? 'Selfie 🌸' : 'Rear'}
                         </span>
 
-                        <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[#1d1b18]/50 p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="absolute inset-0 flex items-center justify-center gap-1.5 sm:gap-2 bg-[#1d1b18]/50 p-2 opacity-0 transition-opacity group-hover:opacity-100">
                           <button
                             type="button"
                             onClick={() => setActivePhoto(img)}
-                            className="rounded-lg bg-white/95 p-2 text-[#c2185b] hover:bg-white"
+                            className="rounded-lg bg-white/95 p-1.5 sm:p-2 text-[#c2185b] hover:bg-white"
                             title="View fullscreen"
                           >
                             <Maximize2 className="h-3.5 w-3.5" />
@@ -1036,7 +1036,7 @@ export default function EventsPage() {
                           Math.min(prev + 6, remoteImages.length),
                         )
                       }
-                      className="flex w-36 shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#ebdce3] bg-[#fff9fb] p-3 text-center transition-colors hover:border-[#c2185b] hover:bg-white sm:w-40"
+                      className="flex w-32 sm:w-40 shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#ebdce3] bg-[#fff9fb] p-3 text-center transition-colors hover:border-[#c2185b] hover:bg-white"
                     >
                       <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ff80ab] bg-[#fff0f5] text-[#c2185b]">
                         <Plus className="h-4 w-4" />

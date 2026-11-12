@@ -135,9 +135,9 @@ export function LoveNotesWidget({
         </div>
 
         {latestPartnerNote && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#fff5f8] border border-[#fde8ef] text-xs text-[#c2185b]">
-            <span className="text-base">{latestPartnerNote.mood || '💖'}</span>
-            <span className="font-medium truncate max-w-[200px]">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#fff5f8] border border-[#fde8ef] text-xs text-[#c2185b] max-w-full min-w-0">
+            <span className="text-base shrink-0">{latestPartnerNote.mood || '💖'}</span>
+            <span className="font-medium truncate max-w-[140px] sm:max-w-[200px]">
               &quot;{latestPartnerNote.message}&quot;
             </span>
             <span className="text-[10px] text-[#96918a] shrink-0">
@@ -149,8 +149,8 @@ export function LoveNotesWidget({
         )}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 bg-[#fff8fa] p-1 rounded-xl border border-[#fae5ed]">
+      <div className="mt-3.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full min-w-0">
+        <div className="flex items-center justify-center sm:justify-start gap-1 bg-[#fff8fa] p-1 rounded-xl border border-[#fae5ed] shrink-0">
           {MOODS.map((m) => (
             <button
               key={m.label}
@@ -168,35 +168,37 @@ export function LoveNotesWidget({
           ))}
         </div>
 
-        <input
-          type="text"
-          value={customNote}
-          onChange={(e) => setCustomNote(e.target.value)}
-          placeholder={`Leave a sweet note for ${partnerName}…`}
-          className="flex-1 min-w-[180px] text-xs px-3 py-2 rounded-xl border border-[#fae5ed] bg-[#fffafc] text-[#1d1b18] placeholder-[#96918a] focus:outline-none focus:border-[#ff4081]"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSendPoke();
-          }}
-        />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <input
+            type="text"
+            value={customNote}
+            onChange={(e) => setCustomNote(e.target.value)}
+            placeholder={`Leave a sweet note for ${partnerName}…`}
+            className="flex-1 min-w-0 text-xs px-3 py-2 rounded-xl border border-[#fae5ed] bg-[#fffafc] text-[#1d1b18] placeholder-[#96918a] focus:outline-none focus:border-[#ff4081]"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendPoke();
+            }}
+          />
 
-        <button
-          type="button"
-          onClick={handleSendPoke}
-          disabled={sending}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl text-white bg-[#ff4081] hover:bg-[#c2185b] transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
-        >
-          {sentSuccess ? (
-            <>
-              <Check className="w-3.5 h-3.5" />
-              <span>Sent with love! 💕</span>
-            </>
-          ) : (
-            <>
-              <Heart className="w-3.5 h-3.5 fill-current" />
-              <span>Send Poke 💕</span>
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={handleSendPoke}
+            disabled={sending}
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl text-white bg-[#ff4081] hover:bg-[#c2185b] transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+          >
+            {sentSuccess ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Sent! 💕</span>
+              </>
+            ) : (
+              <>
+                <Heart className="w-3.5 h-3.5 fill-current" />
+                <span>Poke 💕</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </article>
   );

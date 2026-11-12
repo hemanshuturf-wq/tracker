@@ -58,14 +58,14 @@ export default function Header({
     >
       <div className="mx-auto h-full max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-full items-center justify-between gap-4">
-          <a href="/" className="group flex items-center gap-3">
-            <AmiChanCatMascot size={36} mood="happy" />
-            <div className="leading-none">
-              <span className="font-display text-[19px] font-semibold tracking-tight text-[#1d1b18] flex items-center gap-1.5">
-                Activity Pulse
+          <a href="/" className="group flex items-center gap-2.5 min-w-0">
+            <AmiChanCatMascot size={34} mood="happy" />
+            <div className="leading-tight min-w-0">
+              <span className="font-display text-[16px] sm:text-[19px] font-semibold tracking-tight text-[#1d1b18] truncate flex items-center gap-1.5">
+                Tracker by Parth
                 <span className="text-[10px] text-[#ff4081] font-sans font-bold">🌸</span>
               </span>
-              <span className="mt-1 hidden text-[10px] font-medium uppercase tracking-[0.18em] text-[#c2185b] sm:block">
+              <span className="hidden text-[9px] font-medium uppercase tracking-[0.16em] text-[#c2185b] sm:block">
                 AmiChan Sanctuary
               </span>
             </div>
