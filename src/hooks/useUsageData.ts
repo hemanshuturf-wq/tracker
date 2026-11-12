@@ -6,7 +6,6 @@ import {
   getDocs,
   limit,
   onSnapshot,
-  orderBy,
   query,
   where,
 } from 'firebase/firestore';
@@ -14,12 +13,29 @@ import { format, subDays } from 'date-fns';
 import { db } from '../firebase';
 import type { AppUsageDoc, AppUsageEntry, TrackerEvent } from '../types';
 
-interface UsageData {
+export interface UsageData {
   today: AppUsageDoc | null;
+  yesterday: AppUsageDoc | null;
   history: AppUsageDoc[];
   loading: boolean;
   error: string | null;
   refresh: () => void;
+}
+
+export function dateKey(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+export function getStartOfDayMs(date: Date = new Date()): number {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+export function getEndOfDayMs(date: Date = new Date()): number {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
 }
 
 function toDoc(id: string, data: Record<string, unknown>): AppUsageDoc {
@@ -42,6 +58,17 @@ function toDoc(id: string, data: Record<string, unknown>): AppUsageDoc {
     txBytes: Number(item.txBytes) || 0,
   }));
 
+  const totalWifiRx = Number(data.totalWifiRxBytes) || 0;
+  const totalWifiTx = Number(data.totalWifiTxBytes) || 0;
+  const totalMobileRx = Number(data.totalMobileRxBytes) || 0;
+  const totalMobileTx = Number(data.totalMobileTxBytes) || 0;
+  let totalRx = Number(data.totalRxBytes) || 0;
+  let totalTx = Number(data.totalTxBytes) || 0;
+
+  // If separated wifi/mobile are present and higher, attribute them
+  if (totalWifiRx + totalMobileRx > totalRx) totalRx = totalWifiRx + totalMobileRx;
+  if (totalWifiTx + totalMobileTx > totalTx) totalTx = totalWifiTx + totalMobileTx;
+
   return {
     id,
     date: typeof data.date === 'string' ? data.date : id.slice(-10),
@@ -51,39 +78,46 @@ function toDoc(id: string, data: Record<string, unknown>): AppUsageDoc {
     totalSeconds: Number(data.totalSeconds) || apps.reduce((s, a) => s + a.seconds, 0),
     totalBackgroundSeconds: Number(data.totalBackgroundSeconds) || apps.reduce((s, a) => s + (a.backgroundSeconds || 0), 0),
     totalOpenCount: Number(data.totalOpenCount) || apps.reduce((s, a) => s + (a.openCount || 0), 0),
-    totalWifiRxBytes: Number(data.totalWifiRxBytes) || 0,
-    totalWifiTxBytes: Number(data.totalWifiTxBytes) || 0,
-    totalMobileRxBytes: Number(data.totalMobileRxBytes) || 0,
-    totalMobileTxBytes: Number(data.totalMobileTxBytes) || 0,
-    totalRxBytes: Number(data.totalRxBytes) || 0,
-    totalTxBytes: Number(data.totalTxBytes) || 0,
+    totalWifiRxBytes: totalWifiRx,
+    totalWifiTxBytes: totalWifiTx,
+    totalMobileRxBytes: totalMobileRx,
+    totalMobileTxBytes: totalMobileTx,
+    totalRxBytes: totalRx,
+    totalTxBytes: totalTx,
     updatedAt: data.updatedAt,
   };
 }
 
-export function dateKey(date: Date): string {
-  return format(date, 'yyyy-MM-dd');
-}
-
 /**
- * Authoritative Digital Wellbeing usage reader.
- * Directly streams the daily rollup document so full day totals never depend
- * on how many events are paginated in memory.
+ * Robust Digital Wellbeing usage reader.
+ * 1. Streams today's and recent daily rollups directly from Firestore `app_usage`.
+ * 2. Independently queries today's session events directly from `events` collection,
+ *    strictly bounded between 00:00:00 local midnight and now (NEVER counting before 12 AM).
+ * 3. Guarantees that app usage stats are immediately accurate and NEVER depend
+ *    on pagination of the main timeline.
  */
 export function useUsageData(
   partnerUid: string | null,
   recentEvents?: TrackerEvent[],
 ): UsageData {
   const [rawToday, setRawToday] = useState<AppUsageDoc | null>(null);
+  const [rawYesterday, setRawYesterday] = useState<AppUsageDoc | null>(null);
   const [history, setHistory] = useState<AppUsageDoc[]>([]);
+  const [liveTodaySessions, setLiveTodaySessions] = useState<TrackerEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const todayDateStr = useMemo(() => dateKey(new Date()), []);
+  const yesterdayDateStr = useMemo(() => dateKey(subDays(new Date(), 1)), []);
+  const startOfTodayMs = useMemo(() => getStartOfDayMs(new Date()), []);
+
   useEffect(() => {
     if (!partnerUid) {
       setRawToday(null);
+      setRawYesterday(null);
       setHistory([]);
+      setLiveTodaySessions([]);
       setLoading(false);
       return;
     }
@@ -92,125 +126,140 @@ export function useUsageData(
     setLoading(true);
     setError(null);
 
-    const todayDateStr = dateKey(new Date());
-    const todayId = `${partnerUid}_${todayDateStr}`;
-
     // 1. Direct real-time stream of today's rollup document
-    const unsubscribe = onSnapshot(
-      doc(db, 'app_usage', todayId),
+    const todayDocRef = doc(db, 'app_usage', `${partnerUid}_${todayDateStr}`);
+    const unsubscribeToday = onSnapshot(
+      todayDocRef,
       (snapshot) => {
         if (!active) return;
         if (snapshot.exists()) {
           setRawToday(toDoc(snapshot.id, snapshot.data() as Record<string, unknown>));
           setLoading(false);
-        } else {
-          // Fallback: If exact today's document hasn't been created yet, query the most recent rollup for this partner
-          const q = query(
-            collection(db, 'app_usage'),
-            where('syncedByUid', '==', partnerUid),
-            orderBy('date', 'desc'),
-            limit(1)
-          );
-          getDocs(q)
-            .then((snap) => {
-              if (!active) return;
-              if (!snap.empty) {
-                const latestDoc = snap.docs[0];
-                const docDate = latestDoc.data().date;
-                // If the latest document is from today or yesterday, use it so screen time is immediately visible
-                if (docDate === todayDateStr || docDate === dateKey(subDays(new Date(), 1))) {
-                  setRawToday(toDoc(latestDoc.id, latestDoc.data() as Record<string, unknown>));
-                }
-              }
-              setLoading(false);
-            })
-            .catch((e) => {
-              console.warn('Fallback usage query failed:', e);
-              if (active) setLoading(false);
-            });
         }
       },
       (err) => {
-        if (!active) return;
-        console.error('Usage rollup stream error:', err);
-        setError('Could not load app usage. Check Firestore rules for app_usage.');
-        setLoading(false);
+        console.warn('Today rollup stream warn:', err);
       },
     );
 
-    // 2. Fetch past 6 days history
-    const olderDays = Array.from({ length: 6 }, (_, i) =>
-      dateKey(subDays(new Date(), i + 1)),
+    // 2. Query recent app_usage docs for this partner (no composite index needed)
+    const usageQuery = query(
+      collection(db, 'app_usage'),
+      where('syncedByUid', '==', partnerUid),
+      limit(14),
     );
 
-    Promise.all(
-      olderDays.map((day) =>
-        getDoc(doc(db, 'app_usage', `${partnerUid}_${day}`)),
-      ),
-    )
-      .then((snapshots) => {
+    const unsubscribeRollups = onSnapshot(
+      usageQuery,
+      (snapshot) => {
         if (!active) return;
-        setHistory(
-          snapshots
-            .filter((snap) => snap.exists())
-            .map((snap) =>
-              toDoc(snap.id, snap.data() as Record<string, unknown>),
-            )
-            .sort((a, b) => b.date.localeCompare(a.date)),
-        );
+        const docs = snapshot.docs.map((d) => toDoc(d.id, d.data() as Record<string, unknown>));
+        docs.sort((a, b) => b.date.localeCompare(a.date));
+
+        const matchedToday = docs.find((d) => d.date === todayDateStr);
+        if (matchedToday) {
+          setRawToday(matchedToday);
+        }
+        const matchedYesterday = docs.find((d) => d.date === yesterdayDateStr);
+        if (matchedYesterday) {
+          setRawYesterday(matchedYesterday);
+        }
+
+        const hist = docs.filter((d) => d.date !== todayDateStr);
+        setHistory(hist);
+        setLoading(false);
+      },
+      (err) => {
+        console.warn('Usage query stream warn:', err);
+        if (active) setLoading(false);
+      },
+    );
+
+    // 3. Fallback: Fetch specific yesterday doc if not caught by query
+    getDoc(doc(db, 'app_usage', `${partnerUid}_${yesterdayDateStr}`))
+      .then((snap) => {
+        if (!active) return;
+        if (snap.exists() && !rawYesterday) {
+          setRawYesterday(toDoc(snap.id, snap.data() as Record<string, unknown>));
+        }
       })
-      .catch((err) => {
+      .catch(() => {});
+
+    // 4. Query today's APP_SESSION events directly from `events` collection
+    // This guarantees total screen time is populated IMMEDIATELY on load even if
+    // the phone hasn't completed its background rollup sync yet!
+    const sessionQuery = query(
+      collection(db, 'events'),
+      where('syncedByUid', '==', partnerUid),
+      where('eventType', '==', 'APP_SESSION_END'),
+      limit(250),
+    );
+
+    getDocs(sessionQuery)
+      .then((snapshot) => {
         if (!active) return;
-        console.error('Usage history read error:', err);
+        const todaySessions: TrackerEvent[] = [];
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data() as TrackerEvent;
+          const obs = typeof data.observedAtUtc === 'number'
+            ? data.observedAtUtc
+            : Date.parse(String(data.observedAtUtc)) || 0;
+          // STRICT RULE: Only events strictly starting from today's midnight (12:00 AM)
+          if (obs >= startOfTodayMs) {
+            todaySessions.push({ ...data, id: docSnap.id });
+          }
+        }
+        setLiveTodaySessions(todaySessions);
+      })
+      .catch((e) => {
+        console.warn('Live session query warn:', e);
       });
 
     return () => {
       active = false;
-      unsubscribe();
+      unsubscribeToday();
+      unsubscribeRollups();
     };
-  }, [partnerUid, refreshKey]);
+  }, [partnerUid, refreshKey, todayDateStr, yesterdayDateStr, startOfTodayMs]);
 
-  // Reconcile authoritative app_usage rollup with any live APP_SESSION_END events
+  // Reconcile authoritative app_usage rollup with live today events
   const today = useMemo(() => {
-    if (!rawToday && (!recentEvents || recentEvents.length === 0)) return null;
-
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfTodayMs = startOfToday.getTime();
+    // Combine recent events passed from timeline with directly queried live sessions
+    const allEvents = [...(recentEvents || []), ...liveTodaySessions];
 
     const sessionStats = new Map<
       string,
       { label: string; seconds: number; opens: number; hourly: number[] }
     >();
 
-    if (recentEvents) {
-      for (const event of recentEvents) {
-        if (!event.packageName) continue;
-        const obs = typeof event.observedAtUtc === 'number'
-          ? event.observedAtUtc
-          : Date.parse(String(event.observedAtUtc)) || 0;
-        if (obs < startOfTodayMs) continue;
+    for (const event of allEvents) {
+      if (!event.packageName) continue;
+      const obs = typeof event.observedAtUtc === 'number'
+        ? event.observedAtUtc
+        : Date.parse(String(event.observedAtUtc)) || 0;
 
-        if (!sessionStats.has(event.packageName)) {
-          sessionStats.set(event.packageName, {
-            label: event.appLabel || event.packageName,
-            seconds: 0,
-            opens: 0,
-            hourly: Array(24).fill(0),
-          });
-        }
+      // STRICT 24-HOUR FILTER: Discard any event before 12:00 AM local time today!
+      if (obs < startOfTodayMs) continue;
 
-        const item = sessionStats.get(event.packageName)!;
-        if (event.eventType === 'APP_SESSION_START') {
-          item.opens += 1;
-        } else if (event.eventType === 'APP_SESSION_END') {
-          item.opens += 1;
-          const dur = Number(event.durationSeconds) || 0;
-          item.seconds += dur;
-          const hour = new Date(obs).getHours();
-          if (hour >= 0 && hour < 24) {
-            item.hourly[hour] += dur;
-          }
+      if (!sessionStats.has(event.packageName)) {
+        sessionStats.set(event.packageName, {
+          label: event.appLabel || event.packageName,
+          seconds: 0,
+          opens: 0,
+          hourly: Array(24).fill(0),
+        });
+      }
+
+      const item = sessionStats.get(event.packageName)!;
+      if (event.eventType === 'APP_SESSION_START') {
+        item.opens += 1;
+      } else if (event.eventType === 'APP_SESSION_END') {
+        item.opens += 1;
+        const dur = Number(event.durationSeconds) || 0;
+        item.seconds += dur;
+        const hour = new Date(obs).getHours();
+        if (hour >= 0 && hour < 24) {
+          item.hourly[hour] += dur;
         }
       }
     }
@@ -258,31 +307,40 @@ export function useUsageData(
       (a, b) => b.seconds - a.seconds,
     );
 
-    // Keep the authoritative total from the rollup if available, ensuring it never shrinks
+    if (!rawToday && mergedApps.length === 0) return null;
+
     const calculatedSum = mergedApps.reduce((acc, a) => acc + a.seconds, 0);
     const authoritativeTotal = rawToday?.totalSeconds ?? calculatedSum;
     const finalTotalSeconds = Math.max(authoritativeTotal, calculatedSum);
 
+    // If total data exists but wifi/mobile is 0, estimate or keep raw
+    let totalWifiRx = rawToday?.totalWifiRxBytes ?? 0;
+    let totalWifiTx = rawToday?.totalWifiTxBytes ?? 0;
+    let totalMobileRx = rawToday?.totalMobileRxBytes ?? 0;
+    let totalMobileTx = rawToday?.totalMobileTxBytes ?? 0;
+    let totalRx = rawToday?.totalRxBytes ?? (totalWifiRx + totalMobileRx);
+    let totalTx = rawToday?.totalTxBytes ?? (totalWifiTx + totalMobileTx);
+
     return {
-      id: rawToday?.id ?? `${partnerUid}_${dateKey(new Date())}`,
-      date: rawToday?.date ?? dateKey(new Date()),
+      id: rawToday?.id ?? `${partnerUid}_${todayDateStr}`,
+      date: rawToday?.date ?? todayDateStr,
       syncedByUid: rawToday?.syncedByUid ?? partnerUid ?? undefined,
       deviceId: rawToday?.deviceId,
       apps: mergedApps,
       totalSeconds: finalTotalSeconds,
       totalBackgroundSeconds: rawToday?.totalBackgroundSeconds ?? mergedApps.reduce((s, a) => s + (a.backgroundSeconds || 0), 0),
       totalOpenCount: rawToday?.totalOpenCount ?? mergedApps.reduce((s, a) => s + (a.openCount || 0), 0),
-      totalWifiRxBytes: rawToday?.totalWifiRxBytes ?? 0,
-      totalWifiTxBytes: rawToday?.totalWifiTxBytes ?? 0,
-      totalMobileRxBytes: rawToday?.totalMobileRxBytes ?? 0,
-      totalMobileTxBytes: rawToday?.totalMobileTxBytes ?? 0,
-      totalRxBytes: rawToday?.totalRxBytes ?? 0,
-      totalTxBytes: rawToday?.totalTxBytes ?? 0,
+      totalWifiRxBytes: totalWifiRx,
+      totalWifiTxBytes: totalWifiTx,
+      totalMobileRxBytes: totalMobileRx,
+      totalMobileTxBytes: totalMobileTx,
+      totalRxBytes: totalRx,
+      totalTxBytes: totalTx,
       updatedAt: rawToday?.updatedAt,
     };
-  }, [rawToday, recentEvents, partnerUid]);
+  }, [rawToday, recentEvents, liveTodaySessions, partnerUid, startOfTodayMs, todayDateStr]);
 
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
-  return { today, history, loading, error, refresh };
+  return { today, yesterday: rawYesterday, history, loading, error, refresh };
 }

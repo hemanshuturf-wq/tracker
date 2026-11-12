@@ -40,22 +40,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Sparkles,
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, subDays } from 'date-fns';
 import { db } from '../firebase';
 import type { EventType, TrackerEvent, RemoteImage } from '../types';
 import Header from '../components/Header';
-import EventFilters from '../components/EventFilters';
+import { EventFilters } from '../components/EventFilters';
 import EventCard from '../components/EventCard';
 import UsagePanel from '../components/UsagePanel';
 import { useAuth } from '../context/AuthContext';
-import { useUsageData } from '../hooks/useUsageData';
+import { useUsageData, getStartOfDayMs } from '../hooks/useUsageData';
 import { formatBytes, formatDuration } from '../lib/format';
+import { LoveNotesWidget } from '../components/LoveNotesWidget';
+import { UploadApkModal } from '../components/UploadApkModal';
 
 interface Filters {
   eventTypes: EventType[];
   appLabel: string | null;
-  dateRange: 'today' | '7d' | '30d' | 'all';
+  dateRange: 'today' | 'yesterday' | '7d' | '30d' | 'all';
   search: string;
 }
 
@@ -67,7 +70,7 @@ interface StatItem {
   iconClass: string;
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 40;
 const OLDER_PAGE_SIZE = 100;
 
 const PARTNER_UIDS: Record<string, string> = {
@@ -167,19 +170,21 @@ export default function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [newEventCount, setNewEventCount] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [uploadApkOpen, setUploadApkOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
     'connected' | 'connecting' | 'error'
   >('connecting');
 
+  // STRICT 24-HOUR FILTER: Default is 'today'
   const [filters, setFilters] = useState<Filters>({
     eventTypes: [],
     appLabel: null,
-    dateRange: 'all',
+    dateRange: 'today',
     search: '',
   });
 
   const [remoteImages, setRemoteImages] = useState<RemoteImage[]>([]);
-  const [visiblePhotoCount, setVisiblePhotoCount] = useState(5);
+  const [visiblePhotoCount, setVisiblePhotoCount] = useState(6);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [requestingCamera, setRequestingCamera] = useState<
@@ -229,7 +234,7 @@ export default function EventsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Live listener for the first page only. Older pages are fetched on demand.
+  // Live listener for events
   useEffect(() => {
     if (newEventTimeoutRef.current !== null) {
       clearTimeout(newEventTimeoutRef.current);
@@ -289,8 +294,6 @@ export default function EventsPage() {
         const previousLiveRows = liveRowsRef.current;
         liveRowsRef.current = rows;
 
-        // New events can push the oldest row out of the live first page. Keep
-        // those rows in the older set so there is never a gap in the timeline.
         const liveIds = new Set(rows.map((row) => row.id));
         const droppedRows = previousLiveRows.filter((row) => !liveIds.has(row.id));
         if (droppedRows.length > 0) {
@@ -352,7 +355,6 @@ export default function EventsPage() {
     (rows: TrackerEvent[]) => {
       if (rows.length === 0) return;
       olderRowsRef.current = dedupeEvents([...olderRowsRef.current, ...rows]);
-      // Appending below the viewport never changes the reader's scroll position.
       applyEvents(dedupeEvents([...eventsRef.current, ...rows]));
     },
     [applyEvents],
@@ -370,7 +372,6 @@ export default function EventsPage() {
       limit(OLDER_PAGE_SIZE),
     );
     const snapshot = await getDocs(olderQuery);
-    // A refresh or account change happened while this page was in flight.
     if (generation !== loadGenerationRef.current) return null;
     const rows = snapshot.docs.map(
       (docSnap) =>
@@ -424,11 +425,6 @@ export default function EventsPage() {
     }
   }, [partnerUid, fetchOlderPage, appendOlderRows]);
 
-  /**
-   * Pulls every remaining page in the background. The first page stays live;
-   * this fills the timeline below it so the reader never has to keep scrolling
-   * just to discover older events.
-   */
   const loadAllRemaining = useCallback(async () => {
     if (
       !partnerUid ||
@@ -444,6 +440,7 @@ export default function EventsPage() {
     setLoadingMore(true);
     setAutoLoading(true);
     const generation = loadGenerationRef.current;
+    const startOfToday = getStartOfDayMs(new Date());
 
     try {
       while (hasMoreRef.current && generation === loadGenerationRef.current) {
@@ -453,7 +450,16 @@ export default function EventsPage() {
         hasMoreRef.current = page.more;
         setHasMore(page.more);
         if (!page.more) break;
-        // Let React paint the newly appended rows before the next request.
+
+        // If user is on 'today' filter and oldest fetched event is older than midnight, we can stop!
+        if (filters.dateRange === 'today') {
+          const oldestTime = page.rows.length > 0
+            ? toMillis(page.rows[page.rows.length - 1].observedAtUtc) ?? 0
+            : 0;
+          if (oldestTime > 0 && oldestTime < startOfToday) {
+            break;
+          }
+        }
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
       if (generation === loadGenerationRef.current) {
@@ -471,32 +477,9 @@ export default function EventsPage() {
         setAutoLoading(false);
       }
     }
-  }, [partnerUid, fetchOlderPage, appendOlderRows]);
+  }, [partnerUid, fetchOlderPage, appendOlderRows, filters.dateRange]);
 
-  useEffect(() => {
-    if (initialLoad || !hasMore || loadingMore) return;
-    if (autoLoadStartedRef.current) return;
-    void loadAllRemaining();
-  }, [initialLoad, hasMore, loadingMore, loadAllRemaining]);
-
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    if (!node || !hasMore || loadingMore || initialLoad) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          void loadMore();
-        }
-      },
-      { rootMargin: '500px' },
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, initialLoad, loadMore]);
-
-  // Captured photos
+  // Stream remote camera photos
   useEffect(() => {
     if (!partnerUid) {
       setRemoteImages([]);
@@ -567,21 +550,14 @@ export default function EventsPage() {
     [partnerUid, user?.uid, partnerName],
   );
 
+  // STRICT 24-HOUR DATE CUTOFF & FILTERING
+  const startOfToday = useMemo(() => getStartOfDayMs(new Date()), []);
+  const startOfYesterday = useMemo(() => startOfToday - 86400000, [startOfToday]);
+
   const filteredEvents = useMemo(() => {
     const { eventTypes, appLabel, dateRange, search } = filters;
     const searchTrimmed = search.trim().toLowerCase();
     const now = Date.now();
-    let cutoff = 0;
-
-    if (dateRange === 'today') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      cutoff = today.getTime();
-    } else if (dateRange === '7d') {
-      cutoff = now - 7 * 86400000;
-    } else if (dateRange === '30d') {
-      cutoff = now - 30 * 86400000;
-    }
 
     return events.filter((event) => {
       if (eventTypes.length > 0 && !eventTypes.includes(event.eventType)) {
@@ -590,10 +566,22 @@ export default function EventsPage() {
       if (appLabel && event.appLabel !== appLabel) {
         return false;
       }
-      if (cutoff > 0) {
-        const timestamp = toMillis(event.observedAtUtc);
-        if (timestamp === null || timestamp < cutoff) return false;
+
+      const timestamp = toMillis(event.observedAtUtc);
+
+      // STRICT 24-HOUR TIME RULES:
+      if (dateRange === 'today') {
+        // STRICT RULE: Never display anything before 12:00 AM today!
+        if (timestamp === null || timestamp < startOfToday) return false;
+      } else if (dateRange === 'yesterday') {
+        // STRICT RULE: Yesterday is from yesterday 00:00:00 to 23:59:59
+        if (timestamp === null || timestamp < startOfYesterday || timestamp >= startOfToday) return false;
+      } else if (dateRange === '7d') {
+        if (timestamp === null || timestamp < now - 7 * 86400000) return false;
+      } else if (dateRange === '30d') {
+        if (timestamp === null || timestamp < now - 30 * 86400000) return false;
       }
+
       if (searchTrimmed) {
         const haystack =
           `${event.title || ''} ${event.body || ''} ${event.appLabel || ''} ${event.packageName || ''}`.toLowerCase();
@@ -601,28 +589,32 @@ export default function EventsPage() {
       }
       return true;
     });
-  }, [events, filters]);
+  }, [events, filters, startOfToday, startOfYesterday]);
+
+  const isViewingYesterday = filters.dateRange === 'yesterday';
+  const activeUsageDoc = isViewingYesterday ? usage.yesterday : usage.today;
 
   const stats: StatItem[] = useMemo(() => {
-    const todayData =
-      (usage.today?.totalRxBytes ?? 0) + (usage.today?.totalTxBytes ?? 0);
-    const appCount = usage.today?.apps.length ?? 0;
+    const totalData =
+      (activeUsageDoc?.totalRxBytes ?? 0) + (activeUsageDoc?.totalTxBytes ?? 0);
+    const appCount = activeUsageDoc?.apps.length ?? 0;
+    const labelPrefix = isViewingYesterday ? 'Yesterday' : 'Today';
 
     return [
       {
-        label: 'Screen time today',
-        value: usage.loading && !usage.today
+        label: `Screen time ${labelPrefix.toLowerCase()}`,
+        value: usage.loading && !activeUsageDoc
           ? '—'
-          : formatDuration(usage.today?.totalSeconds ?? 0),
+          : formatDuration(activeUsageDoc?.totalSeconds ?? 0),
         detail: `${appCount} app${appCount === 1 ? '' : 's'} tracked`,
         icon: <Clock3 className="h-4 w-4" />,
-        iconClass: 'bg-[#e9f1ed] text-[#1f5c4a]',
+        iconClass: 'bg-[#fff0f5] text-[#c2185b]',
       },
       {
-        label: 'Data today',
-        value: usage.loading && !usage.today
+        label: `Data ${labelPrefix.toLowerCase()}`,
+        value: usage.loading && !activeUsageDoc
           ? '—'
-          : formatBytes(todayData),
+          : formatBytes(totalData),
         detail: 'Wi-Fi + mobile',
         icon: <Wifi className="h-4 w-4" />,
         iconClass: 'bg-[#eef4fb] text-[#2f5d8a]',
@@ -630,23 +622,21 @@ export default function EventsPage() {
       {
         label: 'Apps active',
         value: String(appCount),
-        detail: 'Used since midnight',
+        detail: isViewingYesterday ? 'Used yesterday' : 'Used since 12:00 AM',
         icon: <Smartphone className="h-4 w-4" />,
         iconClass: 'bg-[#f4f3ff] text-[#5925dc]',
       },
       {
-        label: 'Events loaded',
-        value: String(events.length),
-        detail: autoLoading
-          ? 'Loading all activity…'
-          : hasMore
-            ? 'Older activity available'
-            : 'All activity loaded',
+        label: isViewingYesterday ? 'Events yesterday' : 'Events today',
+        value: String(filteredEvents.length),
+        detail: isViewingYesterday
+          ? 'Full 24-hr record'
+          : 'Strictly from 12 AM today',
         icon: <Activity className="h-4 w-4" />,
-        iconClass: 'bg-[#fffaeb] text-[#b54708]',
+        iconClass: 'bg-[#fff5f8] text-[#ff4081]',
       },
     ];
-  }, [usage.loading, usage.today, events.length, hasMore, autoLoading]);
+  }, [usage.loading, activeUsageDoc, isViewingYesterday, filteredEvents.length]);
 
   const displayedImages = useMemo(
     () => remoteImages.slice(0, visiblePhotoCount),
@@ -683,14 +673,18 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18] w-full overflow-x-hidden">
-      <Header partnerName={partnerName} connectionStatus={connectionStatus} />
+    <div className="min-h-screen bg-[#fff7f9] text-[#1d1b18] w-full overflow-x-hidden">
+      <Header
+        partnerName={partnerName}
+        connectionStatus={connectionStatus}
+        onOpenUploadApk={() => setUploadApkOpen(true)}
+      />
 
       {newEventCount > 0 && (
         <div className="fixed left-1/2 top-[82px] z-40 -translate-x-1/2 px-4 max-w-[calc(100vw-2rem)]">
           <button
             onClick={showNewEvents}
-            className="flex animate-slide-down-fade items-center gap-2 rounded-full bg-[#1d1b18] px-4 py-2 text-xs font-medium text-white shadow-lg shadow-[#1d1b18]/15 transition-transform hover:-translate-y-0.5"
+            className="flex animate-slide-down-fade items-center gap-2 rounded-full bg-[#c2185b] px-4 py-2 text-xs font-medium text-white shadow-lg shadow-[#c2185b]/25 transition-transform hover:-translate-y-0.5"
           >
             <ArrowUp className="h-3.5 w-3.5" />
             <span>
@@ -701,28 +695,35 @@ export default function EventsPage() {
       )}
 
       <main className="mx-auto w-full max-w-6xl px-3.5 pb-16 pt-[82px] sm:px-6 sm:pt-[92px] lg:px-8 overflow-x-hidden">
+        {/* OVERVIEW SECTION */}
         <section id="overview">
-          <div className="flex flex-col gap-4 border-b border-[#e7e3db] pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 border-b border-[#f5e6ec] pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#96918a]">
-                Family overview
-              </p>
-              <h1 className="font-display mt-1 text-3xl tracking-tight sm:text-4xl">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#c2185b]">
+                  AmiChan Space 🌸
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fff0f5] text-[10px] text-[#ff4081] font-medium">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  Your Pocket Sanctuary 💕
+                </span>
+              </div>
+              <h1 className="font-display mt-1 text-3xl tracking-tight sm:text-4xl text-[#1d1b18]">
                 {partnerName}&apos;s activity
               </h1>
               <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[#6e6a63]">
-                A quiet, private record of apps, screen time, and shared moments.
+                A quiet, sweet, and private record of daily life, screen time, and shared moments.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#e7e3db] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6e6a63]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#1f5c4a]" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#f5e6ec] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6e6a63]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#c2185b]" />
                 {partnerEmail}
               </span>
               <button
                 onClick={handleRefresh}
-                className="btn-secondary px-3 py-2 text-xs"
+                className="btn-secondary px-3 py-2 text-xs rounded-xl border border-[#ebdce3] bg-white text-[#1d1b18] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -733,26 +734,80 @@ export default function EventsPage() {
           </div>
 
           {error && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#fecdca] bg-[#fef3f2] px-3.5 py-2.5 text-xs text-[#b42318]">
+            <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-3.5 py-2.5 text-xs text-[#b42318]">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {/* DAY SELECTOR TABS */}
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ dateRange: 'today' })}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all ${
+                filters.dateRange === 'today'
+                  ? 'bg-[#c2185b] text-white shadow-xs scale-102'
+                  : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
+              }`}
+            >
+              <span>Today 🌸</span>
+              <span className="text-[10px] opacity-80">({format(new Date(), 'MMM d')})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ dateRange: 'yesterday' })}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all ${
+                filters.dateRange === 'yesterday'
+                  ? 'bg-[#c2185b] text-white shadow-xs scale-102'
+                  : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
+              }`}
+            >
+              <span>Yesterday 📅</span>
+              <span className="text-[10px] opacity-80">({format(subDays(new Date(), 1), 'MMM d')})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleFilterChange({ dateRange: 'all' })}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-medium transition-all ${
+                filters.dateRange === 'all'
+                  ? 'bg-[#c2185b] text-white shadow-xs scale-102'
+                  : 'bg-white border border-[#f5e6ec] text-[#6e6a63] hover:text-[#c2185b] hover:bg-[#fff0f5]'
+              }`}
+            >
+              <span>All Activity 📜</span>
+            </button>
+          </div>
+
+          {/* LOVE NOTES & DAILY MOOD CHECK-IN WIDGET */}
+          <div className="mt-4">
+            <LoveNotesWidget
+              currentUid={user?.uid ?? null}
+              partnerUid={partnerUid}
+              partnerName={partnerName}
+            />
+          </div>
+
+          {/* STATS TILES */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map((stat) => (
-              <div key={stat.label} className="surface-card p-4">
+              <div
+                key={stat.label}
+                className="surface-card p-4 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#96918a]">
                     {stat.label}
                   </p>
                   <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-lg ${stat.iconClass}`}
+                    className={`flex h-7 w-7 items-center justify-center rounded-xl ${stat.iconClass}`}
                   >
                     {stat.icon}
                   </span>
                 </div>
-                <p className="font-display mt-2 text-2xl leading-none tracking-tight">
+                <p className="font-display mt-2 text-2xl leading-none tracking-tight text-[#1d1b18]">
                   {stat.value}
                 </p>
                 <p className="mt-1.5 text-[10.5px] text-[#96918a]">
@@ -763,17 +818,23 @@ export default function EventsPage() {
           </div>
         </section>
 
+        {/* USAGE SECTION */}
         <div id="usage" className="mt-8 scroll-mt-24">
           <div className="mb-3 flex items-end justify-between">
             <div>
-              <h2 className="font-display text-2xl tracking-tight">Usage</h2>
+              <h2 className="font-display text-2xl tracking-tight text-[#1d1b18] flex items-center gap-2">
+                Digital Wellbeing & Usage
+                <span className="text-sm">🌸</span>
+              </h2>
               <p className="text-xs text-[#6e6a63]">
-                Screen time and network data, rolled up on the phone.
+                {isViewingYesterday
+                  ? 'Yesterday’s complete 24-hr screen time and data record.'
+                  : 'Strictly from 12:00 AM local time today. Never counts yesterday.'}
               </p>
             </div>
           </div>
           <UsagePanel
-            today={usage.today}
+            today={activeUsageDoc}
             history={usage.history}
             loading={usage.loading}
             error={usage.error}
@@ -781,24 +842,28 @@ export default function EventsPage() {
           />
         </div>
 
+        {/* REMOTE CAMERA & POLAROID SCRAPBOOK SECTION */}
         <section id="camera" className="mt-8 scroll-mt-24">
           <div className="mb-3">
-            <h2 className="font-display text-2xl tracking-tight">Remote camera</h2>
+            <h2 className="font-display text-2xl tracking-tight text-[#1d1b18] flex items-center gap-2">
+              Polaroid Scrapbook & Remote Camera
+              <span className="text-sm">📸💕</span>
+            </h2>
             <p className="text-xs text-[#6e6a63]">
-              Request a fresh photo from {partnerName}&apos;s phone.
+              Request a fresh selfie from {partnerName}&apos;s phone and preserve shared moments.
             </p>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.5fr]">
-            <div className="surface-card flex flex-col p-5">
+            <div className="surface-card flex flex-col p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e9f1ed] text-[#1f5c4a]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff0f5] text-[#c2185b]">
                   <Camera className="h-4 w-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold">Take a photo</h3>
+                  <h3 className="text-sm font-semibold text-[#1d1b18]">Snap a photo</h3>
                   <p className="text-[11px] text-[#96918a]">
-                    Front or rear camera
+                    Front selfie or rear lens
                   </p>
                 </div>
               </div>
@@ -808,10 +873,10 @@ export default function EventsPage() {
                   type="button"
                   onClick={() => void triggerRemoteCamera('front')}
                   disabled={requestingCamera !== null || !partnerUid}
-                  className="btn-primary w-full py-2.5 text-xs"
+                  className="w-full py-2.5 text-xs font-semibold rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white flex items-center justify-center gap-2 shadow-xs transition-all active:scale-98 disabled:opacity-50"
                 >
                   <Aperture className="h-4 w-4" />
-                  <span>Front selfie</span>
+                  <span>Request Front Selfie 🌸</span>
                   {requestingCamera === 'front' && (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   )}
@@ -821,10 +886,10 @@ export default function EventsPage() {
                   type="button"
                   onClick={() => void triggerRemoteCamera('back')}
                   disabled={requestingCamera !== null || !partnerUid}
-                  className="btn-secondary w-full py-2.5 text-xs"
+                  className="w-full py-2.5 text-xs font-medium rounded-xl border border-[#ebdce3] bg-white text-[#1d1b18] hover:bg-[#fff0f5] hover:text-[#c2185b] flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-50"
                 >
                   <Camera className="h-4 w-4" />
-                  <span>Rear camera</span>
+                  <span>Request Rear Camera</span>
                   {requestingCamera === 'back' && (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   )}
@@ -832,8 +897,7 @@ export default function EventsPage() {
               </div>
 
               <p className="mt-4 text-[10.5px] leading-relaxed text-[#96918a]">
-                Works while the phone is locked. For reliable background capture,
-                keep battery optimization disabled for the tracker app.
+                Captures quietly while locked. Photos save securely into your shared polaroid album.
               </p>
 
               {cameraMessage && (
@@ -850,11 +914,14 @@ export default function EventsPage() {
               )}
             </div>
 
-            <div className="surface-card p-5">
+            {/* VINTAGE POLAROID GALLERY */}
+            <div className="surface-card p-5 rounded-[22px] border border-[#f0e4ea] bg-white shadow-xs">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Aperture className="h-4 w-4 text-[#6e6a63]" />
-                  <h3 className="text-sm font-semibold">Recent photos</h3>
+                  <Aperture className="h-4 w-4 text-[#c2185b]" />
+                  <h3 className="text-sm font-semibold text-[#1d1b18]">
+                    Shared Polaroid Album
+                  </h3>
                   <span className="font-mono text-[10px] text-[#96918a]">
                     {displayedImages.length} of {remoteImages.length}
                   </span>
@@ -862,20 +929,20 @@ export default function EventsPage() {
 
                 <div className="flex items-center gap-1">
                   {remoteLoading && (
-                    <RefreshCw className="mr-1 h-3 w-3 animate-spin text-[#96918a]" />
+                    <RefreshCw className="mr-1 h-3 w-3 animate-spin text-[#c2185b]" />
                   )}
                   {remoteImages.length > 0 && (
                     <>
                       <button
                         onClick={() => scrollGallery('left')}
-                        className="rounded-lg border border-[#e7e3db] bg-white p-1 text-[#6e6a63] hover:bg-[#f3f1ec]"
+                        className="rounded-lg border border-[#ebdce3] bg-white p-1 text-[#6e6a63] hover:bg-[#fff0f5] hover:text-[#c2185b]"
                         aria-label="Previous photo"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => scrollGallery('right')}
-                        className="rounded-lg border border-[#e7e3db] bg-white p-1 text-[#6e6a63] hover:bg-[#f3f1ec]"
+                        className="rounded-lg border border-[#ebdce3] bg-white p-1 text-[#6e6a63] hover:bg-[#fff0f5] hover:text-[#c2185b]"
                         aria-label="Next photo"
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -890,27 +957,33 @@ export default function EventsPage() {
                   {remoteError}
                 </p>
               ) : remoteImages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#e7e3db] bg-[#faf9f7] py-10 text-center">
-                  <Camera className="mb-2 h-6 w-6 text-[#c9c3b6]" />
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#ebdce3] bg-[#fffcfd] py-10 text-center">
+                  <Camera className="mb-2 h-6 w-6 text-[#ff80ab]" />
                   <p className="text-xs font-medium text-[#6e6a63]">
-                    No photos yet
+                    No polaroids yet 💕
                   </p>
                   <p className="mt-1 text-[10.5px] text-[#96918a]">
-                    Request a selfie to see it here.
+                    Request a selfie above to create the first memory!
                   </p>
                 </div>
               ) : (
                 <div
                   ref={galleryRef}
-                  className="flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2"
+                  className="flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto pb-3 pt-2 px-1"
                   style={{ scrollbarWidth: 'thin' }}
                 >
-                  {displayedImages.map((img) => (
+                  {displayedImages.map((img, idx) => (
                     <div
                       key={img.id}
-                      className="group relative w-40 shrink-0 snap-start overflow-hidden rounded-xl border border-[#e7e3db] bg-[#faf9f7] sm:w-44"
+                      className="group relative w-40 shrink-0 snap-start rounded-md border border-[#f0e0e6] bg-white p-2 pb-3 shadow-[0_10px_25px_-8px_rgba(194,24,91,0.15)] sm:w-44 transition-transform hover:scale-102 hover:rotate-0"
+                      style={{
+                        transform: idx % 2 === 0 ? 'rotate(-1.5deg)' : 'rotate(1.5deg)',
+                      }}
                     >
-                      <div className="relative aspect-square overflow-hidden bg-[#efede7]">
+                      {/* Washi tape sticker */}
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-3 bg-[#ffb2cc]/80 rounded-xs rotate-[-2deg] pointer-events-none shadow-2xs" />
+
+                      <div className="relative aspect-square overflow-hidden rounded-xs bg-[#fdeef3]">
                         <img
                           src={`data:image/jpeg;base64,${img.imageBase64}`}
                           alt="Remote capture"
@@ -918,15 +991,15 @@ export default function EventsPage() {
                           loading="lazy"
                           decoding="async"
                         />
-                        <span className="absolute left-1.5 top-1.5 rounded-md bg-[#1d1b18]/75 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-white">
-                          {img.lensFacing === 'front' ? 'Selfie' : 'Rear'}
+                        <span className="absolute left-1.5 top-1.5 rounded-md bg-[#c2185b]/80 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-white">
+                          {img.lensFacing === 'front' ? 'Selfie 🌸' : 'Rear'}
                         </span>
 
                         <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[#1d1b18]/50 p-2 opacity-0 transition-opacity group-hover:opacity-100">
                           <button
                             type="button"
                             onClick={() => setActivePhoto(img)}
-                            className="rounded-lg bg-white/90 p-2 text-[#1d1b18] hover:bg-white"
+                            className="rounded-lg bg-white/95 p-2 text-[#c2185b] hover:bg-white"
                             title="View fullscreen"
                           >
                             <Maximize2 className="h-3.5 w-3.5" />
@@ -937,31 +1010,21 @@ export default function EventsPage() {
                               e.stopPropagation();
                               downloadImage(img);
                             }}
-                            className="flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1.5 text-[10px] font-semibold text-[#1d1b18] hover:bg-white"
+                            className="flex items-center gap-1 rounded-lg bg-white/95 px-2 py-1.5 text-[10px] font-semibold text-[#1d1b18] hover:bg-white"
                             title="Download image"
                           >
-                            <Download className="h-3.5 w-3.5" />
+                            <Download className="h-3.5 w-3.5 text-[#c2185b]" />
                             <span className="hidden sm:inline">Save</span>
                           </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadImage(img);
-                          }}
-                          className="absolute bottom-1.5 right-1.5 rounded-lg bg-white/90 p-1.5 text-[#1d1b18] shadow-sm sm:hidden"
-                          title="Download"
-                        >
-                          <Download className="h-3 w-3" />
-                        </button>
                       </div>
 
-                      <div className="truncate px-2 py-1.5 font-mono text-[9.5px] text-[#96918a]">
-                        {formatDistanceToNow(new Date(img.timestamp), {
-                          addSuffix: true,
-                        })}
+                      <div className="mt-2 text-center">
+                        <p className="font-mono text-[9px] text-[#96918a]">
+                          {formatDistanceToNow(new Date(img.timestamp), {
+                            addSuffix: true,
+                          })}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -970,19 +1033,16 @@ export default function EventsPage() {
                     <button
                       onClick={() =>
                         setVisiblePhotoCount((prev) =>
-                          Math.min(prev + 5, remoteImages.length),
+                          Math.min(prev + 6, remoteImages.length),
                         )
                       }
-                      className="flex w-36 shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#d8d3c8] bg-[#faf9f7] p-3 text-center transition-colors hover:border-[#1f5c4a] hover:bg-white sm:w-40"
+                      className="flex w-36 shrink-0 snap-start flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#ebdce3] bg-[#fff9fb] p-3 text-center transition-colors hover:border-[#c2185b] hover:bg-white sm:w-40"
                     >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#bcd6cb] bg-[#e9f1ed] text-[#1f5c4a]">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ff80ab] bg-[#fff0f5] text-[#c2185b]">
                         <Plus className="h-4 w-4" />
                       </span>
-                      <span className="text-[11px] font-semibold text-[#3f3b35]">
-                        Load 5 more
-                      </span>
-                      <span className="font-mono text-[9px] text-[#96918a]">
-                        {remoteImages.length - visiblePhotoCount} left
+                      <span className="text-[11px] font-medium text-[#c2185b]">
+                        Load more polaroids
                       </span>
                     </button>
                   )}
@@ -992,20 +1052,21 @@ export default function EventsPage() {
           </div>
         </section>
 
+        {/* ACTIVITY TIMELINE SECTION */}
         <section id="activity" className="mt-8 scroll-mt-24">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
-              <h2 className="font-display text-2xl tracking-tight">Activity</h2>
+              <h2 className="font-display text-2xl tracking-tight text-[#1d1b18]">
+                {isViewingYesterday ? 'Yesterday’s Activity' : 'Today’s Activity Timeline'}
+              </h2>
               <p className="text-xs text-[#6e6a63]">
-                {autoLoading
-                  ? `Newest first · loading all activity (${events.length} loaded)`
-                  : hasMore
-                    ? 'Newest first · older activity available'
-                    : `Newest first · all ${events.length} events loaded`}
+                {isViewingYesterday
+                  ? 'Activity recorded strictly during yesterday’s 24 hours.'
+                  : 'Newest first · strictly starting from 12:00 AM midnight today.'}
               </p>
             </div>
-            <span className="rounded-full border border-[#e7e3db] bg-white px-2.5 py-1 font-mono text-[10px] text-[#6e6a63]">
-              {filteredEvents.length} shown
+            <span className="rounded-full border border-[#f0e0e6] bg-white px-2.5 py-1 font-mono text-[10px] text-[#c2185b] font-medium">
+              {filteredEvents.length} events
             </span>
           </div>
 
@@ -1022,14 +1083,17 @@ export default function EventsPage() {
               ))}
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="surface-card flex flex-col items-center justify-center px-6 py-12 text-center">
-              <Inbox className="mb-2 h-7 w-7 text-[#c9c3b6]" />
-              <p className="text-sm font-medium text-[#3f3b35]">
-                No matching activity
+            <div className="surface-card flex flex-col items-center justify-center px-6 py-12 text-center rounded-[22px] border border-[#f0e4ea] bg-white">
+              <Inbox className="mb-2 h-7 w-7 text-[#ff80ab]" />
+              <p className="text-sm font-medium text-[#1d1b18]">
+                {isViewingYesterday
+                  ? 'No recorded activity for yesterday'
+                  : 'No matching activity for today'}
               </p>
               <p className="mt-1 max-w-sm text-xs text-[#96918a]">
-                Try a different search or clear the filters. New activity appears
-                here after the phone syncs.
+                {isViewingYesterday
+                  ? 'Older activity can be explored by clicking "All Activity 📜".'
+                  : 'Activity resets at 12:00 AM. New events appear in real-time as the phone is used.'}
               </p>
             </div>
           ) : (
@@ -1046,44 +1110,53 @@ export default function EventsPage() {
 
           <div ref={loadMoreRef} className="mt-6 flex justify-center py-3">
             {autoLoading ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#e7e3db] bg-white px-3 py-1.5 text-[11px] text-[#6e6a63]">
-                <RefreshCw className="h-3 w-3 animate-spin text-[#1f5c4a]" />
-                Loading all activity… {events.length} loaded
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#ebdce3] bg-white px-3 py-1.5 text-[11px] text-[#6e6a63]">
+                <RefreshCw className="h-3 w-3 animate-spin text-[#c2185b]" />
+                Loading activity…
               </span>
             ) : loadingMore ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#e7e3db] bg-white px-3 py-1.5 text-[11px] text-[#6e6a63]">
-                <RefreshCw className="h-3 w-3 animate-spin text-[#1f5c4a]" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#ebdce3] bg-white px-3 py-1.5 text-[11px] text-[#6e6a63]">
+                <RefreshCw className="h-3 w-3 animate-spin text-[#c2185b]" />
                 Loading older activity…
               </span>
             ) : hasMore ? (
-              <button
-                onClick={() => void loadAllRemaining()}
-                className="btn-secondary px-4 py-2 text-xs"
-              >
-                Load all remaining activity
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void loadMore()}
+                  className="px-3.5 py-2 text-xs rounded-xl border border-[#ebdce3] bg-white text-[#1d1b18] hover:bg-[#fff0f5] hover:text-[#c2185b] font-medium transition-colors"
+                >
+                  Load next 100 events
+                </button>
+                <button
+                  onClick={() => void loadAllRemaining()}
+                  className="px-3.5 py-2 text-xs rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white font-semibold transition-colors shadow-2xs"
+                >
+                  Load all remaining activity
+                </button>
+              </div>
             ) : (
               <span className="text-[11px] text-[#96918a]">
-                All {events.length} events loaded.
+                All activity loaded.
               </span>
             )}
           </div>
         </section>
       </main>
 
+      {/* FULLSCREEN PHOTO PREVIEW MODAL */}
       {activePhoto && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1d1b18]/70 p-3 backdrop-blur-sm sm:p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#1d1b18]/70 p-3 backdrop-blur-xs sm:p-4"
           onClick={() => setActivePhoto(null)}
         >
           <div
-            className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#e7e3db] bg-white shadow-2xl"
+            className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-[#f0e4ea] bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#f0eee8] px-4 py-3">
+            <div className="flex items-center justify-between border-b border-[#fdf0f4] px-4 py-3">
               <div className="flex items-center gap-2">
-                <span className="rounded-md border border-[#bcd6cb] bg-[#e9f1ed] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-[#1f5c4a]">
-                  {activePhoto.lensFacing === 'front' ? 'Selfie' : 'Rear'}
+                <span className="rounded-md border border-[#ffb2cc] bg-[#fff0f5] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-[#c2185b]">
+                  {activePhoto.lensFacing === 'front' ? 'Selfie 🌸' : 'Rear'}
                 </span>
                 <span className="font-mono text-[10.5px] text-[#96918a]">
                   {formatTimestamp(activePhoto.timestamp)}
@@ -1094,7 +1167,7 @@ export default function EventsPage() {
                 <button
                   type="button"
                   onClick={() => downloadImage(activePhoto)}
-                  className="btn-primary px-2.5 py-1.5 text-[11px]"
+                  className="px-3 py-1.5 rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
                 >
                   <Download className="h-3.5 w-3.5" />
                   <span>Download</span>
@@ -1102,24 +1175,24 @@ export default function EventsPage() {
                 <button
                   type="button"
                   onClick={() => setActivePhoto(null)}
-                  className="rounded-lg p-1 text-[#96918a] hover:bg-[#f3f1ec] hover:text-[#1d1b18]"
+                  className="rounded-full p-1.5 text-[#96918a] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-1 items-center justify-center overflow-hidden bg-[#faf9f7] p-2 sm:p-4">
+            <div className="flex flex-1 items-center justify-center overflow-hidden bg-[#fffafc] p-2 sm:p-4">
               <img
                 src={`data:image/jpeg;base64,${activePhoto.imageBase64}`}
                 alt="Captured photo"
-                className="max-h-[60vh] w-auto max-w-full rounded-xl object-contain"
+                className="max-h-[60vh] w-auto max-w-full rounded-2xl object-contain shadow-xs"
                 decoding="async"
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-[#f0eee8] px-4 py-2 font-mono text-[10px] text-[#96918a]">
+            <div className="flex items-center justify-between gap-3 border-t border-[#fdf0f4] px-4 py-2 font-mono text-[10px] text-[#96918a]">
               <span className="truncate">UID: {activePhoto.deviceId}</span>
               <span>
                 {formatDistanceToNow(new Date(activePhoto.timestamp), {
@@ -1129,6 +1202,11 @@ export default function EventsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* UPLOAD NEW APK & GITHUB RELEASE MODAL */}
+      {uploadApkOpen && (
+        <UploadApkModal onClose={() => setUploadApkOpen(false)} />
       )}
     </div>
   );

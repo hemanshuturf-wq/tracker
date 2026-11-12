@@ -10,6 +10,7 @@ import {
   Radio,
   ChevronRight,
   Smartphone,
+  Sparkles,
 } from 'lucide-react';
 import type { AppUsageDoc, AppUsageEntry } from '../types';
 import AppIcon from './AppIcon';
@@ -81,22 +82,25 @@ export default function UsagePanel({
   const totalData =
     (today?.totalRxBytes ?? 0) + (today?.totalTxBytes ?? 0);
 
+  const hasSeparatedData = totalWifi + totalMobile > 0;
+
   return (
     <>
       <section className="grid gap-4 lg:grid-cols-2">
         {/* Screen time / app usage */}
-        <article className="surface-card p-5 sm:p-6">
+        <article className="surface-card p-5 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e9f1ed] text-[#1f5c4a]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff0f5] text-[#c2185b]">
                 <Clock3 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18]">
+                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18] flex items-center gap-1.5">
                   Screen time & App usage
+                  <span className="text-xs text-[#c2185b]">🌸</span>
                 </h2>
                 <p className="text-xs text-[#6e6a63]">
-                  Tap any app for stats · today
+                  Digital Wellbeing · strictly from 12 AM today
                 </p>
               </div>
             </div>
@@ -104,7 +108,7 @@ export default function UsagePanel({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="rounded-lg p-1.5 text-[#96918a] transition-colors hover:bg-[#f3f1ec] hover:text-[#1d1b18]"
+                className="rounded-xl p-1.5 text-[#96918a] transition-colors hover:bg-[#fff0f5] hover:text-[#c2185b]"
                 aria-label="Refresh usage data"
                 title="Refresh usage data"
               >
@@ -127,7 +131,7 @@ export default function UsagePanel({
                 {today && (today.totalOpenCount || 0) > 0 && (
                   <>
                     <span>•</span>
-                    <span className="inline-flex items-center gap-1 text-[#1f5c4a] font-medium">
+                    <span className="inline-flex items-center gap-1 text-[#c2185b] font-medium">
                       <Smartphone className="w-3 h-3" />
                       {today.totalOpenCount} opens
                     </span>
@@ -146,8 +150,8 @@ export default function UsagePanel({
                     title={`${formatDuration(day.seconds)} · ${day.date}`}
                   >
                     <div
-                      className={`w-full rounded-t-[3px] ${
-                        isToday ? 'bg-[#1f5c4a]' : 'bg-[#d8e8e1]'
+                      className={`w-full rounded-t-[4px] ${
+                        isToday ? 'bg-[#ff4081]' : 'bg-[#ffd3e2]'
                       }`}
                       style={{
                         height: `${Math.max(4, (day.seconds / maxTrend) * 52)}px`,
@@ -162,14 +166,14 @@ export default function UsagePanel({
             </div>
           </div>
 
-          <div className="mt-5 border-t border-[#efede7] pt-2">
+          <div className="mt-5 border-t border-[#f7eef2] pt-2">
             {error ? (
               <p className="py-4 text-xs text-[#b42318]">{error}</p>
             ) : loading && !today ? (
               <div className="space-y-3 py-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton h-8 w-8 rounded-lg" />
+                    <div className="skeleton h-8 w-8 rounded-xl" />
                     <div className="flex-1 space-y-1.5">
                       <div className="skeleton h-2.5 w-1/3 rounded" />
                       <div className="skeleton h-1.5 w-full rounded" />
@@ -179,17 +183,17 @@ export default function UsagePanel({
               </div>
             ) : apps.length === 0 ? (
               <EmptyUsage
-                title="No app usage yet today"
-                detail="Digital Wellbeing usage rolls up continuously from the phone."
+                title="No app usage recorded yet today"
+                detail="Activity resets at 12 AM. New app sessions appear as apps are opened on the phone."
               />
             ) : (
-              <div className="divide-y divide-[#f3f1ec]">
+              <div className="divide-y divide-[#fdf8f9]">
                 {visibleApps.map((app) => (
                   <button
                     key={app.packageName}
                     type="button"
                     onClick={() => setSelectedApp(app)}
-                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors hover:bg-[#f8f7f4] group"
+                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl text-left transition-colors hover:bg-[#fff9fa] group"
                   >
                     <AppIcon
                       packageName={app.packageName}
@@ -198,7 +202,7 @@ export default function UsagePanel({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-[13px] font-medium text-[#1d1b18] group-hover:text-[#1f5c4a] transition-colors">
+                        <span className="truncate text-[13px] font-medium text-[#1d1b18] group-hover:text-[#c2185b] transition-colors">
                           {app.label || app.packageName}
                         </span>
                         <span className="shrink-0 font-mono text-[11px] text-[#6e6a63]">
@@ -206,9 +210,9 @@ export default function UsagePanel({
                         </span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <div className="flex-1 h-1 overflow-hidden rounded-full bg-[#f0eee8]">
+                        <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-[#faeff3]">
                           <div
-                            className="h-full rounded-full bg-[#1f5c4a]"
+                            className="h-full rounded-full bg-[#ff4081]"
                             style={{
                               width: `${Math.max(2, (app.seconds / maxAppSeconds) * 100)}%`,
                             }}
@@ -221,7 +225,7 @@ export default function UsagePanel({
                         ) : null}
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#d8d3c8] group-hover:text-[#1f5c4a] transition-colors flex-shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#e0cfd6] group-hover:text-[#c2185b] transition-colors flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -231,7 +235,7 @@ export default function UsagePanel({
               <button
                 type="button"
                 onClick={() => setShowAllApps((value) => !value)}
-                className="mt-2 text-xs font-medium text-[#1f5c4a] hover:underline inline-flex items-center gap-1"
+                className="mt-2 text-xs font-medium text-[#c2185b] hover:underline inline-flex items-center gap-1"
               >
                 {showAllApps ? 'Show less' : `Show all ${apps.length} apps`}
               </button>
@@ -240,18 +244,21 @@ export default function UsagePanel({
         </article>
 
         {/* Data tracking: Separated Wi-Fi and Mobile */}
-        <article className="surface-card p-5 sm:p-6">
+        <article className="surface-card p-5 sm:p-6 border border-[#f0e7eb] rounded-[22px] bg-white shadow-xs">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef4fb] text-[#2f5d8a]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eef4fb] text-[#2f5d8a]">
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18]">
+                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18] flex items-center gap-1.5">
                   Data usage
+                  <Sparkles className="w-3.5 h-3.5 text-[#ff7597]" />
                 </h2>
                 <p className="text-xs text-[#6e6a63]">
-                  Wi-Fi & Mobile data tracked separately · today
+                  {hasSeparatedData
+                    ? 'Wi-Fi & Mobile data tracked separately · today'
+                    : 'Total device data transferred · today'}
                 </p>
               </div>
             </div>
@@ -264,7 +271,7 @@ export default function UsagePanel({
                   {loading && !today ? '—' : formatBytes(totalData)}
                 </p>
                 <p className="mt-1 text-xs text-[#96918a]">
-                  Total data transferred today
+                  Total data transferred today (since 12 AM)
                 </p>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-[#6e6a63] font-mono">
@@ -282,36 +289,62 @@ export default function UsagePanel({
 
             {/* Separated Wi-Fi vs Mobile Inset Cards */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <div className="surface-inset p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
-                  <Wifi className="w-3.5 h-3.5 text-[#2f5d8a]" />
-                  <span>Wi-Fi</span>
-                </div>
-                <span className="text-xs font-bold text-[#1d1b18] font-mono">
-                  {formatBytes(totalWifi)}
-                </span>
-              </div>
+              {hasSeparatedData ? (
+                <>
+                  <div className="p-3 rounded-xl bg-[#f7f9fc] border border-[#e8edf5] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                      <Wifi className="w-3.5 h-3.5 text-[#2f5d8a]" />
+                      <span>Wi-Fi</span>
+                    </div>
+                    <span className="text-xs font-bold text-[#1d1b18] font-mono">
+                      {formatBytes(totalWifi)}
+                    </span>
+                  </div>
 
-              <div className="surface-inset p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
-                  <Radio className="w-3.5 h-3.5 text-[#1f5c4a]" />
-                  <span>Mobile</span>
-                </div>
-                <span className="text-xs font-bold text-[#1d1b18] font-mono">
-                  {formatBytes(totalMobile)}
-                </span>
-              </div>
+                  <div className="p-3 rounded-xl bg-[#fcf8fa] border border-[#f5e9ee] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                      <Radio className="w-3.5 h-3.5 text-[#c2185b]" />
+                      <span>Mobile</span>
+                    </div>
+                    <span className="text-xs font-bold text-[#1d1b18] font-mono">
+                      {formatBytes(totalMobile)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 rounded-xl bg-[#f7f9fc] border border-[#e8edf5] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                      <ArrowDownToLine className="w-3.5 h-3.5 text-[#2f5d8a]" />
+                      <span>Download</span>
+                    </div>
+                    <span className="text-xs font-bold text-[#1d1b18] font-mono">
+                      {formatBytes(today?.totalRxBytes ?? 0)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#fffaf5] border border-[#faeee3] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                      <ArrowUpFromLine className="w-3.5 h-3.5 text-[#b54708]" />
+                      <span>Upload</span>
+                    </div>
+                    <span className="text-xs font-bold text-[#1d1b18] font-mono">
+                      {formatBytes(today?.totalTxBytes ?? 0)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="mt-5 border-t border-[#efede7] pt-2">
+          <div className="mt-5 border-t border-[#f7eef2] pt-2">
             {error ? (
               <p className="py-4 text-xs text-[#b42318]">{error}</p>
             ) : loading && !today ? (
               <div className="space-y-3 py-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton h-8 w-8 rounded-lg" />
+                    <div className="skeleton h-8 w-8 rounded-xl" />
                     <div className="flex-1 space-y-1.5">
                       <div className="skeleton h-2.5 w-1/3 rounded" />
                       <div className="skeleton h-1.5 w-full rounded" />
@@ -325,13 +358,13 @@ export default function UsagePanel({
                 detail="Per-app network statistics appear as connections are used on the device."
               />
             ) : (
-              <div className="divide-y divide-[#f3f1ec]">
+              <div className="divide-y divide-[#fdf8f9]">
                 {visibleDataApps.map((app) => (
                   <button
                     key={app.packageName}
                     type="button"
                     onClick={() => setSelectedApp(app)}
-                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors hover:bg-[#f8f7f4] group"
+                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl text-left transition-colors hover:bg-[#fff9fa] group"
                   >
                     <AppIcon
                       packageName={app.packageName}
@@ -347,7 +380,7 @@ export default function UsagePanel({
                           {formatBytes(app.totalBytes)}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#f0eee8]">
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#f0eee8]">
                         <div
                           className="h-full rounded-full bg-[#2f5d8a]"
                           style={{
@@ -356,17 +389,26 @@ export default function UsagePanel({
                         />
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-[10px] text-[#96918a] font-mono">
-                        <span className="inline-flex items-center gap-1">
-                          <Wifi className="w-2.5 h-2.5 text-[#2f5d8a]" />
-                          {formatBytes(app.wifiTotal)}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Radio className="w-2.5 h-2.5 text-[#1f5c4a]" />
-                          {formatBytes(app.mobileTotal)}
-                        </span>
+                        {app.wifiTotal > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[#2f5d8a]">
+                            <Wifi className="w-2.5 h-2.5" />
+                            {formatBytes(app.wifiTotal)}
+                          </span>
+                        )}
+                        {app.mobileTotal > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[#c2185b]">
+                            <Radio className="w-2.5 h-2.5" />
+                            {formatBytes(app.mobileTotal)}
+                          </span>
+                        )}
+                        {app.wifiTotal === 0 && app.mobileTotal === 0 && app.totalBytes > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[#6e6a63]">
+                            ↓ {formatBytes(app.rxBytes || 0)} · ↑ {formatBytes(app.txBytes || 0)}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#d8d3c8] group-hover:text-[#2f5d8a] transition-colors flex-shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#e0cfd6] group-hover:text-[#2f5d8a] transition-colors flex-shrink-0" />
                   </button>
                 ))}
               </div>
