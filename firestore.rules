@@ -1,9 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Secure family access: all signed-in users (admin and tracked phone) can read and write data
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // Only Parth and Amisha's specific accounts can access any tracker data
+    function isAllowedUser() {
+      return request.auth != null &&
+             request.auth.uid in ['dicrDfK5OphttPlhKs5rBVUqNnC3', 'dVQspayOWZavC1j8FHqZk4ANX3u2'];
+    }
+
+    match /events/{eventId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /devices/{deviceId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /app_icons/{packageName} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /sync_state/{docId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /remote_commands/{commandId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /remote_images/{imageId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    // Daily app usage + network data rollup
+    match /app_usage/{docId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    // In-app updates distribution
+    match /app_updates/{docId} {
+      allow read, write: if isAllowedUser();
     }
   }
 }
