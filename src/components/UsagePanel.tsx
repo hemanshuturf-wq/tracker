@@ -85,18 +85,18 @@ export default function UsagePanel({
     <>
       <section className="grid gap-4 lg:grid-cols-2">
         {/* Screen time / app usage */}
-        <article className="surface-card p-5 sm:p-6 transition-all duration-200">
+        <article className="surface-card p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e9f1ed] text-[#1f5c4a]">
                 <Clock3 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18]">
                   Screen time & App usage
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Tap any app for Digital Wellbeing stats · today
+                <p className="text-xs text-[#6e6a63]">
+                  Tap any app for stats · today
                 </p>
               </div>
             </div>
@@ -104,7 +104,7 @@ export default function UsagePanel({
               <button
                 type="button"
                 onClick={onRefresh}
-                className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100"
+                className="rounded-lg p-1.5 text-[#96918a] transition-colors hover:bg-[#f3f1ec] hover:text-[#1d1b18]"
                 aria-label="Refresh usage data"
                 title="Refresh usage data"
               >
@@ -115,10 +115,10 @@ export default function UsagePanel({
 
           <div className="mt-5 flex items-end justify-between gap-2 sm:gap-4 overflow-hidden">
             <div className="min-w-0 flex-1">
-              <p className="font-display text-3xl sm:text-4xl font-extrabold leading-none tracking-tight text-slate-900 dark:text-white truncate">
+              <p className="font-display text-3xl sm:text-4xl leading-none tracking-tight text-[#1d1b18] truncate">
                 {loading && !today ? '—' : formatDuration(today?.totalSeconds ?? 0)}
               </p>
-              <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <div className="mt-1.5 flex items-center gap-2 text-xs text-[#96918a]">
                 <span>
                   {today
                     ? `Across ${apps.length} app${apps.length === 1 ? '' : 's'}`
@@ -127,7 +127,7 @@ export default function UsagePanel({
                 {today && (today.totalOpenCount || 0) > 0 && (
                   <>
                     <span>•</span>
-                    <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-medium">
+                    <span className="inline-flex items-center gap-1 text-[#1f5c4a] font-medium">
                       <Smartphone className="w-3 h-3" />
                       {today.totalOpenCount} opens
                     </span>
@@ -146,14 +146,14 @@ export default function UsagePanel({
                     title={`${formatDuration(day.seconds)} · ${day.date}`}
                   >
                     <div
-                      className={`w-full rounded-t-[3px] transition-all ${
-                        isToday ? 'bg-pink-600 dark:bg-pink-500' : 'bg-pink-200 dark:bg-pink-950/60'
+                      className={`w-full rounded-t-[3px] ${
+                        isToday ? 'bg-[#1f5c4a]' : 'bg-[#d8e8e1]'
                       }`}
                       style={{
                         height: `${Math.max(4, (day.seconds / maxTrend) * 52)}px`,
                       }}
                     />
-                    <span className="text-[10px] font-medium uppercase text-slate-400">
+                    <span className="text-[9px] font-medium uppercase text-[#96918a]">
                       {format(parseISO(day.date), 'EEEEE')}
                     </span>
                   </div>
@@ -162,17 +162,17 @@ export default function UsagePanel({
             </div>
           </div>
 
-          <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-2">
+          <div className="mt-5 border-t border-[#efede7] pt-2">
             {error ? (
-              <p className="py-4 text-xs text-rose-500">{error}</p>
+              <p className="py-4 text-xs text-[#b42318]">{error}</p>
             ) : loading && !today ? (
               <div className="space-y-3 py-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton h-9 w-9 rounded-xl" />
+                    <div className="skeleton h-8 w-8 rounded-lg" />
                     <div className="flex-1 space-y-1.5">
-                      <div className="skeleton h-3 w-1/3 rounded" />
-                      <div className="skeleton h-2 w-full rounded" />
+                      <div className="skeleton h-2.5 w-1/3 rounded" />
+                      <div className="skeleton h-1.5 w-full rounded" />
                     </div>
                   </div>
                 ))}
@@ -180,48 +180,48 @@ export default function UsagePanel({
             ) : apps.length === 0 ? (
               <EmptyUsage
                 title="No app usage yet today"
-                detail="Digital Wellbeing usage rolls up continuously. Tap refresh above to force immediate sync."
+                detail="Digital Wellbeing usage rolls up continuously from the phone."
               />
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <div className="divide-y divide-[#f3f1ec]">
                 {visibleApps.map((app) => (
                   <button
                     key={app.packageName}
                     type="button"
                     onClick={() => setSelectedApp(app)}
-                    className="w-full flex items-center gap-3 py-3 px-2 rounded-xl text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 group"
+                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors hover:bg-[#f8f7f4] group"
                   >
                     <AppIcon
                       packageName={app.packageName}
                       appLabel={app.label}
-                      className="w-9 h-9 rounded-xl flex-shrink-0 shadow-sm"
+                      size={32}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100 group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors">
+                        <span className="truncate text-[13px] font-medium text-[#1d1b18] group-hover:text-[#1f5c4a] transition-colors">
                           {app.label || app.packageName}
                         </span>
-                        <span className="shrink-0 font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="shrink-0 font-mono text-[11px] text-[#6e6a63]">
                           {formatDuration(app.seconds)}
                         </span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className="flex-1 h-1 overflow-hidden rounded-full bg-[#f0eee8]">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-pink-500 to-indigo-500"
+                            className="h-full rounded-full bg-[#1f5c4a]"
                             style={{
                               width: `${Math.max(2, (app.seconds / maxAppSeconds) * 100)}%`,
                             }}
                           />
                         </div>
                         {app.openCount && app.openCount > 0 ? (
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="text-[10px] text-[#96918a] font-mono">
                             {app.openCount} opens
                           </span>
                         ) : null}
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-pink-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#d8d3c8] group-hover:text-[#1f5c4a] transition-colors flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -231,7 +231,7 @@ export default function UsagePanel({
               <button
                 type="button"
                 onClick={() => setShowAllApps((value) => !value)}
-                className="mt-3 text-xs font-semibold text-pink-600 dark:text-pink-400 hover:underline inline-flex items-center gap-1"
+                className="mt-2 text-xs font-medium text-[#1f5c4a] hover:underline inline-flex items-center gap-1"
               >
                 {showAllApps ? 'Show less' : `Show all ${apps.length} apps`}
               </button>
@@ -239,18 +239,18 @@ export default function UsagePanel({
           </div>
         </article>
 
-        {/* Data usage: Separated Wi-Fi and Mobile */}
-        <article className="surface-card p-5 sm:p-6 transition-all duration-200">
+        {/* Data tracking: Separated Wi-Fi and Mobile */}
+        <article className="surface-card p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef4fb] text-[#2f5d8a]">
                 <BarChart3 className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                  Data tracking
+                <h2 className="text-[15px] font-semibold tracking-tight text-[#1d1b18]">
+                  Data usage
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-[#6e6a63]">
                   Wi-Fi & Mobile data tracked separately · today
                 </p>
               </div>
@@ -260,59 +260,61 @@ export default function UsagePanel({
           <div className="mt-5 space-y-3">
             <div className="flex items-baseline justify-between">
               <div>
-                <span className="text-xs text-slate-400 uppercase tracking-wider font-medium">Total data</span>
-                <p className="font-display text-3xl sm:text-4xl font-extrabold leading-none tracking-tight text-slate-900 dark:text-white mt-1">
+                <p className="font-display text-4xl leading-none tracking-tight text-[#1d1b18]">
                   {loading && !today ? '—' : formatBytes(totalData)}
                 </p>
+                <p className="mt-1 text-xs text-[#96918a]">
+                  Total data transferred today
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-[11px] text-[#6e6a63] font-mono">
                 <span className="inline-flex items-center gap-1">
-                  <ArrowDownToLine className="h-3.5 w-3.5 text-emerald-500" />
+                  <ArrowDownToLine className="h-3 w-3 text-[#2f5d8a]" />
                   {formatBytes(today?.totalRxBytes ?? 0)}
                 </span>
                 <span>•</span>
                 <span className="inline-flex items-center gap-1">
-                  <ArrowUpFromLine className="h-3.5 w-3.5 text-indigo-500" />
+                  <ArrowUpFromLine className="h-3 w-3 text-[#b54708]" />
                   {formatBytes(today?.totalTxBytes ?? 0)}
                 </span>
               </div>
             </div>
 
-            {/* Separated Wi-Fi vs Mobile Bar */}
+            {/* Separated Wi-Fi vs Mobile Inset Cards */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Wifi className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Wi-Fi</span>
+              <div className="surface-inset p-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                  <Wifi className="w-3.5 h-3.5 text-[#2f5d8a]" />
+                  <span>Wi-Fi</span>
                 </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                <span className="text-xs font-bold text-[#1d1b18] font-mono">
                   {formatBytes(totalWifi)}
                 </span>
               </div>
 
-              <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 rounded-xl p-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Mobile Data</span>
+              <div className="surface-inset p-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-[#1d1b18]">
+                  <Radio className="w-3.5 h-3.5 text-[#1f5c4a]" />
+                  <span>Mobile</span>
                 </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                <span className="text-xs font-bold text-[#1d1b18] font-mono">
                   {formatBytes(totalMobile)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-2">
+          <div className="mt-5 border-t border-[#efede7] pt-2">
             {error ? (
-              <p className="py-4 text-xs text-rose-500">{error}</p>
+              <p className="py-4 text-xs text-[#b42318]">{error}</p>
             ) : loading && !today ? (
               <div className="space-y-3 py-2">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="skeleton h-9 w-9 rounded-xl" />
+                    <div className="skeleton h-8 w-8 rounded-lg" />
                     <div className="flex-1 space-y-1.5">
-                      <div className="skeleton h-3 w-1/3 rounded" />
-                      <div className="skeleton h-2 w-full rounded" />
+                      <div className="skeleton h-2.5 w-1/3 rounded" />
+                      <div className="skeleton h-1.5 w-full rounded" />
                     </div>
                   </div>
                 ))}
@@ -320,51 +322,51 @@ export default function UsagePanel({
             ) : dataApps.length === 0 ? (
               <EmptyUsage
                 title="No data usage recorded yet today"
-                detail="Per-app Wi-Fi and Mobile statistics appear as network connections are used on the device."
+                detail="Per-app network statistics appear as connections are used on the device."
               />
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <div className="divide-y divide-[#f3f1ec]">
                 {visibleDataApps.map((app) => (
                   <button
                     key={app.packageName}
                     type="button"
                     onClick={() => setSelectedApp(app)}
-                    className="w-full flex items-center gap-3 py-3 px-2 rounded-xl text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 group"
+                    className="w-full flex items-center gap-3 py-2.5 px-2 rounded-lg text-left transition-colors hover:bg-[#f8f7f4] group"
                   >
                     <AppIcon
                       packageName={app.packageName}
                       appLabel={app.label}
-                      className="w-9 h-9 rounded-xl flex-shrink-0 shadow-sm"
+                      size={32}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <span className="truncate text-[13px] font-medium text-[#1d1b18] group-hover:text-[#2f5d8a] transition-colors">
                           {app.label || app.packageName}
                         </span>
-                        <span className="shrink-0 font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="shrink-0 font-mono text-[11px] text-[#6e6a63]">
                           {formatBytes(app.totalBytes)}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#f0eee8]">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500"
+                          className="h-full rounded-full bg-[#2f5d8a]"
                           style={{
                             width: `${Math.max(2, (app.totalBytes / maxAppBytes) * 100)}%`,
                           }}
                         />
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-[10px] text-slate-400 font-mono">
-                        <span className="inline-flex items-center gap-1 text-indigo-500">
-                          <Wifi className="w-2.5 h-2.5" />
+                      <div className="mt-1 flex items-center gap-3 text-[10px] text-[#96918a] font-mono">
+                        <span className="inline-flex items-center gap-1">
+                          <Wifi className="w-2.5 h-2.5 text-[#2f5d8a]" />
                           {formatBytes(app.wifiTotal)}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-rose-500">
-                          <Radio className="w-2.5 h-2.5" />
+                        <span className="inline-flex items-center gap-1">
+                          <Radio className="w-2.5 h-2.5 text-[#1f5c4a]" />
                           {formatBytes(app.mobileTotal)}
                         </span>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-[#d8d3c8] group-hover:text-[#2f5d8a] transition-colors flex-shrink-0" />
                   </button>
                 ))}
               </div>
@@ -374,7 +376,7 @@ export default function UsagePanel({
               <button
                 type="button"
                 onClick={() => setShowAllData((value) => !value)}
-                className="mt-3 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1"
+                className="mt-2 text-xs font-medium text-[#2f5d8a] hover:underline inline-flex items-center gap-1"
               >
                 {showAllData ? 'Show less' : `Show all ${dataApps.length} apps`}
               </button>
@@ -397,8 +399,8 @@ export default function UsagePanel({
 function EmptyUsage({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="py-6 text-center">
-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
-      <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-slate-400 dark:text-slate-500">
+      <p className="text-sm font-medium text-[#6e6a63]">{title}</p>
+      <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-[#96918a]">
         {detail}
       </p>
     </div>
