@@ -1,0 +1,56 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "syncedByUid", "order": "ASCENDING" },
+        { "fieldPath": "observedAtUtc", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "syncedByUid", "order": "ASCENDING" },
+        { "fieldPath": "eventType", "order": "ASCENDING" },
+        { "fieldPath": "observedAtUtc", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "syncedByUid", "order": "ASCENDING" },
+        { "fieldPath": "packageName", "order": "ASCENDING" },
+        { "fieldPath": "observedAtUtc", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "remote_commands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deviceUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "requestedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "remote_images",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deviceId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "app_usage",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "syncedByUid", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
