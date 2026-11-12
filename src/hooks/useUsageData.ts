@@ -39,25 +39,145 @@ export function getEndOfDayMs(date: Date = new Date()): number {
   return d.getTime();
 }
 
-function toDoc(id: string, data: Record<string, unknown>): AppUsageDoc {
+/**
+ * Tracks the current local calendar day (`yyyy-MM-dd`) and automatically triggers
+ * a rollover shortly after 12:00 AM local time (and on tab focus/visibility resume)
+ * so open browser tabs never stay stuck on yesterday's date.
+ */
+export function useLocalDayKey(): string {
+  const [dayKey, setDayKey] = useState(() => dateKey(new Date()));
+
+  useEffect(() => {
+    let timerId: number | undefined;
+
+    const syncAndSchedule = () => {
+      const now = new Date();
+      const current = dateKey(now);
+      setDayKey((prev) => (prev === current ? prev : current));
+
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 250);
+      const delay = Math.max(1000, nextMidnight.getTime() - now.getTime());
+      window.clearTimeout(timerId);
+      timerId = window.setTimeout(syncAndSchedule, Math.min(delay, 2_147_000_000));
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncAndSchedule();
+      }
+    };
+
+    syncAndSchedule();
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.clearTimeout(timerId);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, []);
+
+  return dayKey;
+}
+
+function parseExtraJson(raw: string | null | undefined): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeHourly(raw: unknown): number[] {
+  const out = Array(24).fill(0) as number[];
+  if (!Array.isArray(raw)) return out;
+  for (let i = 0; i < 24 && i < raw.length; i++) {
+    out[i] = Math.max(0, Number(raw[i]) || 0);
+  }
+  return out;
+}
+
+function sumHourlyUpTo(hourly: number[], maxHourInclusive: number): number {
+  let sum = 0;
+  for (let h = 0; h <= maxHourInclusive && h < hourly.length; h++) {
+    sum += hourly[h] || 0;
+  }
+  return sum;
+}
+
+function toDoc(
+  id: string,
+  data: Record<string, unknown>,
+  now: Date = new Date(),
+): AppUsageDoc {
+  const docDate = typeof data.date === 'string' ? data.date : id.slice(-10);
+  const aggregatorVersion = Number(data.aggregatorVersion) || 1;
+  const isTodayDoc = docDate === dateKey(now);
+  const currentHour = now.getHours();
+  const elapsedTodaySec = isTodayDoc
+    ? Math.max(0, Math.floor((now.getTime() - getStartOfDayMs(now)) / 1000))
+    : 86400;
+
   const rawApps = Array.isArray(data.apps) ? data.apps : [];
-  const apps: AppUsageEntry[] = rawApps.map((item: Record<string, unknown>) => ({
-    packageName: String(item.packageName || ''),
-    label: String(item.label || item.packageName || 'App'),
-    seconds: Number(item.seconds) || 0,
-    backgroundSeconds: Number(item.backgroundSeconds) || 0,
-    openCount: Number(item.openCount) || 0,
-    hourlySeconds: Array.isArray(item.hourlySeconds)
-      ? item.hourlySeconds.map((v) => Number(v) || 0)
-      : Array(24).fill(0),
-    notificationCount: Number(item.notificationCount) || 0,
-    wifiRxBytes: Number(item.wifiRxBytes) || 0,
-    wifiTxBytes: Number(item.wifiTxBytes) || 0,
-    mobileRxBytes: Number(item.mobileRxBytes) || 0,
-    mobileTxBytes: Number(item.mobileTxBytes) || 0,
-    rxBytes: Number(item.rxBytes) || 0,
-    txBytes: Number(item.txBytes) || 0,
-  }));
+  const parsedApps = rawApps.map((item: Record<string, unknown>) => {
+    const hourly = normalizeHourly(item.hourlySeconds);
+    const cleanHourlySum = Math.min(
+      elapsedTodaySec,
+      sumHourlyUpTo(hourly, isTodayDoc ? currentHour : 23),
+    );
+    return {
+      entry: {
+        packageName: String(item.packageName || ''),
+        label: String(item.label || item.packageName || 'App'),
+        seconds: Math.max(0, Number(item.seconds) || 0),
+        backgroundSeconds: Math.max(0, Number(item.backgroundSeconds) || 0),
+        openCount: Math.max(0, Number(item.openCount) || 0),
+        hourlySeconds: hourly,
+        notificationCount: Math.max(0, Number(item.notificationCount) || 0),
+        wifiRxBytes: Math.max(0, Number(item.wifiRxBytes) || 0),
+        wifiTxBytes: Math.max(0, Number(item.wifiTxBytes) || 0),
+        mobileRxBytes: Math.max(0, Number(item.mobileRxBytes) || 0),
+        mobileTxBytes: Math.max(0, Number(item.mobileTxBytes) || 0),
+        rxBytes: Math.max(0, Number(item.rxBytes) || 0),
+        txBytes: Math.max(0, Number(item.txBytes) || 0),
+      } satisfies AppUsageEntry,
+      cleanHourlySum,
+    };
+  });
+
+  const rawTotalSeconds = Math.max(0, Number(data.totalSeconds) || 0);
+  const hasAnyHourly = parsedApps.some((p) => p.cleanHourlySum > 0);
+  const exceedsWallClock =
+    isTodayDoc &&
+    (rawTotalSeconds > elapsedTodaySec + 60 ||
+      parsedApps.some((p) => p.entry.seconds > elapsedTodaySec + 60));
+
+  // Pre-v2 Android builds merged UTC INTERVAL_DAILY buckets (05:30 IST - 05:30 IST),
+  // leaking yesterday's totals into `seconds` while `hourlySeconds` only came from local UsageEvents.
+  const sanitizeWithHourly = aggregatorVersion < 2 && (hasAnyHourly || exceedsWallClock);
+
+  const apps: AppUsageEntry[] = [];
+  for (const { entry, cleanHourlySum } of parsedApps) {
+    if (sanitizeWithHourly) {
+      entry.seconds = cleanHourlySum;
+    } else if (isTodayDoc) {
+      entry.seconds = Math.min(entry.seconds, elapsedTodaySec);
+    }
+    if (
+      sanitizeWithHourly &&
+      entry.seconds === 0 &&
+      (entry.openCount || 0) === 0 &&
+      entry.rxBytes === 0 &&
+      entry.txBytes === 0
+    ) {
+      continue;
+    }
+    apps.push(entry);
+  }
 
   const totalWifiRx = Number(data.totalWifiRxBytes) || 0;
   const totalWifiTx = Number(data.totalWifiTxBytes) || 0;
@@ -70,15 +190,25 @@ function toDoc(id: string, data: Record<string, unknown>): AppUsageDoc {
   if (totalWifiRx + totalMobileRx > totalRx) totalRx = totalWifiRx + totalMobileRx;
   if (totalWifiTx + totalMobileTx > totalTx) totalTx = totalWifiTx + totalMobileTx;
 
+  const summedAppSeconds = apps.reduce((s, a) => s + a.seconds, 0);
+  const totalSeconds = sanitizeWithHourly
+    ? Math.min(elapsedTodaySec, summedAppSeconds)
+    : Math.min(elapsedTodaySec, rawTotalSeconds || summedAppSeconds);
+  const summedOpenCount = apps.reduce((s, a) => s + (a.openCount || 0), 0);
+  const totalOpenCount = sanitizeWithHourly
+    ? summedOpenCount
+    : Number(data.totalOpenCount) || summedOpenCount;
+
   return {
     id,
-    date: typeof data.date === 'string' ? data.date : id.slice(-10),
+    date: docDate,
     syncedByUid: typeof data.syncedByUid === 'string' ? data.syncedByUid : undefined,
     deviceId: typeof data.deviceId === 'string' ? data.deviceId : undefined,
+    aggregatorVersion,
     apps,
-    totalSeconds: Number(data.totalSeconds) || apps.reduce((s, a) => s + a.seconds, 0),
+    totalSeconds,
     totalBackgroundSeconds: Number(data.totalBackgroundSeconds) || apps.reduce((s, a) => s + (a.backgroundSeconds || 0), 0),
-    totalOpenCount: Number(data.totalOpenCount) || apps.reduce((s, a) => s + (a.openCount || 0), 0),
+    totalOpenCount,
     totalWifiRxBytes: totalWifiRx,
     totalWifiTxBytes: totalWifiTx,
     totalMobileRxBytes: totalMobileRx,
@@ -109,17 +239,25 @@ export function useUsageData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const localDayKey = useLocalDayKey();
 
-  const todayDateStr = useMemo(() => dateKey(new Date()), []);
-  const yesterdayDateStr = useMemo(() => dateKey(subDays(new Date(), 1)), []);
-  const startOfTodayMs = useMemo(() => getStartOfDayMs(new Date()), []);
+  const { todayDateStr, yesterdayDateStr, startOfTodayMs } = useMemo(() => {
+    const now = new Date();
+    return {
+      todayDateStr: dateKey(now),
+      yesterdayDateStr: dateKey(subDays(now, 1)),
+      startOfTodayMs: getStartOfDayMs(now),
+    };
+  }, [localDayKey, refreshKey]);
 
   useEffect(() => {
+    setRawToday(null);
+    setRawYesterday(null);
+    setLiveTodaySessions([]);
+    setTodayEventCount(0);
+
     if (!partnerUid) {
-      setRawToday(null);
-      setRawYesterday(null);
       setHistory([]);
-      setLiveTodaySessions([]);
       setLoading(false);
       return;
     }
@@ -136,8 +274,10 @@ export function useUsageData(
         if (!active) return;
         if (snapshot.exists()) {
           setRawToday(toDoc(snapshot.id, snapshot.data() as Record<string, unknown>));
-          setLoading(false);
+        } else {
+          setRawToday(null);
         }
+        setLoading(false);
       },
       (err) => {
         console.warn('Today rollup stream warn:', err);
@@ -181,8 +321,8 @@ export function useUsageData(
     getDoc(doc(db, 'app_usage', `${partnerUid}_${yesterdayDateStr}`))
       .then((snap) => {
         if (!active) return;
-        if (snap.exists() && !rawYesterday) {
-          setRawYesterday(toDoc(snap.id, snap.data() as Record<string, unknown>));
+        if (snap.exists()) {
+          setRawYesterday((prev) => prev ?? toDoc(snap.id, snap.data() as Record<string, unknown>));
         }
       })
       .catch(() => {});
@@ -266,6 +406,10 @@ export function useUsageData(
 
   // Reconcile authoritative app_usage rollup with live today events
   const today = useMemo(() => {
+    const activeRawToday = rawToday && rawToday.date === todayDateStr ? rawToday : null;
+    const rawTodayIsV2 = (activeRawToday?.aggregatorVersion ?? 1) >= 2;
+    const elapsedTodaySec = Math.max(0, Math.floor((Date.now() - startOfTodayMs) / 1000));
+
     // Combine directly streamed live today events with any timeline events, deduplicating by ID
     const seenIds = new Set<string>();
     const allEvents: TrackerEvent[] = [];
@@ -304,9 +448,35 @@ export function useUsageData(
       if (event.eventType === 'APP_SESSION_START') {
         item.opens += 1;
       } else if (event.eventType === 'APP_SESSION_END') {
-        item.opens += 1;
-        const dur = Number(event.durationSeconds) || 0;
-        item.seconds += dur;
+        const extra = parseExtraJson(event.extraJson);
+        const source = typeof extra?.source === 'string' ? extra.source : '';
+        const collectorVersion = Number(extra?.collectorVersion) || 1;
+        const rawDur = Math.max(0, Number(event.durationSeconds) || 0);
+        const sessionStart =
+          typeof event.sessionStartUtc === 'number' ? event.sessionStartUtc : null;
+        const elapsedToEventSec = Math.max(0, Math.floor((obs - startOfTodayMs) / 1000));
+
+        // Legacy (<v2) usage_stats flushes right after midnight could carry yesterday's
+        // UTC-bucket bleed or inflate periodic delta counts as "opens".
+        if (source === 'usage_stats' && collectorVersion < 2) {
+          if (
+            rawTodayIsV2 ||
+            (sessionStart !== null && sessionStart < startOfTodayMs - 60_000) ||
+            rawDur > elapsedToEventSec + 60
+          ) {
+            continue;
+          }
+        } else if (source !== 'usage_stats') {
+          item.opens += 1;
+        }
+
+        const dur =
+          sessionStart !== null && sessionStart < startOfTodayMs
+            ? Math.min(rawDur, elapsedToEventSec)
+            : rawDur;
+        if (dur <= 0) continue;
+
+        item.seconds = Math.min(elapsedTodaySec, item.seconds + dur);
         const hour = new Date(obs).getHours();
         if (hour >= 0 && hour < 24) {
           item.hourly[hour] += dur;
@@ -315,15 +485,19 @@ export function useUsageData(
     }
 
     const map = new Map<string, AppUsageEntry>();
-    for (const a of rawToday?.apps ?? []) {
-      map.set(a.packageName, { ...a });
+    for (const a of activeRawToday?.apps ?? []) {
+      map.set(a.packageName, {
+        ...a,
+        seconds: Math.min(elapsedTodaySec, Math.max(0, a.seconds)),
+      });
     }
 
     for (const [pkg, stat] of sessionStats.entries()) {
+      const boundedSeconds = Math.min(elapsedTodaySec, stat.seconds);
       if (map.has(pkg)) {
         const existing = map.get(pkg)!;
-        if (stat.seconds > existing.seconds) {
-          existing.seconds = stat.seconds;
+        if (boundedSeconds > existing.seconds) {
+          existing.seconds = boundedSeconds;
         }
         if (stat.opens > (existing.openCount || 0)) {
           existing.openCount = stat.opens;
@@ -334,11 +508,11 @@ export function useUsageData(
         if (!existing.hourlySeconds || existing.hourlySeconds.every((v) => v === 0)) {
           existing.hourlySeconds = stat.hourly;
         }
-      } else if (stat.seconds > 0 || stat.opens > 0) {
+      } else if (boundedSeconds > 0 || stat.opens > 0) {
         map.set(pkg, {
           packageName: pkg,
           label: stat.label,
-          seconds: stat.seconds,
+          seconds: boundedSeconds,
           backgroundSeconds: 0,
           openCount: stat.opens,
           hourlySeconds: stat.hourly,
@@ -357,36 +531,46 @@ export function useUsageData(
       (a, b) => b.seconds - a.seconds,
     );
 
-    if (!rawToday && mergedApps.length === 0) return null;
+    if (!activeRawToday && mergedApps.length === 0) return null;
 
     const calculatedSum = mergedApps.reduce((acc, a) => acc + a.seconds, 0);
-    const authoritativeTotal = rawToday?.totalSeconds ?? calculatedSum;
-    const finalTotalSeconds = Math.max(authoritativeTotal, calculatedSum);
+    const authoritativeTotal = activeRawToday?.totalSeconds ?? calculatedSum;
+    const finalTotalSeconds = Math.min(
+      elapsedTodaySec,
+      Math.max(authoritativeTotal, calculatedSum),
+    );
+    const calculatedOpens = mergedApps.reduce((s, a) => s + (a.openCount || 0), 0);
+    const totalOpenCount = activeRawToday
+      ? rawTodayIsV2
+        ? Math.max(activeRawToday.totalOpenCount ?? 0, calculatedOpens)
+        : calculatedOpens
+      : calculatedOpens;
 
     // If total data exists but wifi/mobile is 0, estimate or keep raw
-    let totalWifiRx = rawToday?.totalWifiRxBytes ?? 0;
-    let totalWifiTx = rawToday?.totalWifiTxBytes ?? 0;
-    let totalMobileRx = rawToday?.totalMobileRxBytes ?? 0;
-    let totalMobileTx = rawToday?.totalMobileTxBytes ?? 0;
-    let totalRx = rawToday?.totalRxBytes ?? (totalWifiRx + totalMobileRx);
-    let totalTx = rawToday?.totalTxBytes ?? (totalWifiTx + totalMobileTx);
+    let totalWifiRx = activeRawToday?.totalWifiRxBytes ?? 0;
+    let totalWifiTx = activeRawToday?.totalWifiTxBytes ?? 0;
+    let totalMobileRx = activeRawToday?.totalMobileRxBytes ?? 0;
+    let totalMobileTx = activeRawToday?.totalMobileTxBytes ?? 0;
+    let totalRx = activeRawToday?.totalRxBytes ?? (totalWifiRx + totalMobileRx);
+    let totalTx = activeRawToday?.totalTxBytes ?? (totalWifiTx + totalMobileTx);
 
     return {
-      id: rawToday?.id ?? `${partnerUid}_${todayDateStr}`,
-      date: rawToday?.date ?? todayDateStr,
-      syncedByUid: rawToday?.syncedByUid ?? partnerUid ?? undefined,
-      deviceId: rawToday?.deviceId,
+      id: activeRawToday?.id ?? `${partnerUid}_${todayDateStr}`,
+      date: activeRawToday?.date ?? todayDateStr,
+      syncedByUid: activeRawToday?.syncedByUid ?? partnerUid ?? undefined,
+      deviceId: activeRawToday?.deviceId,
+      aggregatorVersion: activeRawToday?.aggregatorVersion,
       apps: mergedApps,
       totalSeconds: finalTotalSeconds,
-      totalBackgroundSeconds: rawToday?.totalBackgroundSeconds ?? mergedApps.reduce((s, a) => s + (a.backgroundSeconds || 0), 0),
-      totalOpenCount: rawToday?.totalOpenCount ?? mergedApps.reduce((s, a) => s + (a.openCount || 0), 0),
+      totalBackgroundSeconds: activeRawToday?.totalBackgroundSeconds ?? mergedApps.reduce((s, a) => s + (a.backgroundSeconds || 0), 0),
+      totalOpenCount,
       totalWifiRxBytes: totalWifiRx,
       totalWifiTxBytes: totalWifiTx,
       totalMobileRxBytes: totalMobileRx,
       totalMobileTxBytes: totalMobileTx,
       totalRxBytes: totalRx,
       totalTxBytes: totalTx,
-      updatedAt: rawToday?.updatedAt,
+      updatedAt: activeRawToday?.updatedAt,
     };
   }, [rawToday, recentEvents, liveTodaySessions, partnerUid, startOfTodayMs, todayDateStr]);
 

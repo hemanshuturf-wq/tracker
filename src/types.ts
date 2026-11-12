@@ -59,6 +59,7 @@ export interface AppUsageEntry {
 
 export interface AppUsageDoc {
   id: string;
+  aggregatorVersion?: number;
   date: string;
   syncedByUid?: string;
   deviceId?: string;

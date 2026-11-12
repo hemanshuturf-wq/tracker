@@ -15,7 +15,7 @@ import {
 import type { AppUsageDoc, AppUsageEntry } from '../types';
 import AppIcon from './AppIcon';
 import { formatBytes, formatDuration } from '../lib/format';
-import { dateKey } from '../hooks/useUsageData';
+import { dateKey, useLocalDayKey } from '../hooks/useUsageData';
 import { AppDetailModal } from './AppDetailModal';
 
 interface UsagePanelProps {
@@ -36,10 +36,13 @@ export default function UsagePanel({
   const [showAllApps, setShowAllApps] = useState(false);
   const [showAllData, setShowAllData] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppUsageEntry | null>(null);
+  const localDayKey = useLocalDayKey();
 
   const apps = useMemo(
     () =>
-      [...(today?.apps ?? [])].sort((a, b) => b.seconds - a.seconds),
+      [...(today?.apps ?? [])]
+        .filter((a) => a.seconds > 0 || (a.openCount || 0) > 0)
+        .sort((a, b) => b.seconds - a.seconds),
     [today],
   );
 
@@ -58,6 +61,7 @@ export default function UsagePanel({
   );
 
   const trend = useMemo(() => {
+    void localDayKey;
     const secondsByDay = new Map<string, number>();
     for (const doc of history) secondsByDay.set(doc.date, doc.totalSeconds);
     if (today) secondsByDay.set(today.date, today.totalSeconds);
@@ -66,7 +70,7 @@ export default function UsagePanel({
       const date = dateKey(subDays(new Date(), 6 - index));
       return { date, seconds: secondsByDay.get(date) ?? 0 };
     });
-  }, [history, today]);
+  }, [history, today, localDayKey]);
 
   const maxTrend = Math.max(1, ...trend.map((day) => day.seconds));
   const maxAppSeconds = Math.max(1, ...apps.map((app) => app.seconds));
@@ -142,7 +146,7 @@ export default function UsagePanel({
 
             <div className="flex h-16 items-end gap-1 sm:gap-1.5 shrink-0" aria-label="Seven day screen time trend">
               {trend.map((day) => {
-                const isToday = day.date === dateKey(new Date());
+                const isToday = day.date === localDayKey;
                 return (
                   <div
                     key={day.date}

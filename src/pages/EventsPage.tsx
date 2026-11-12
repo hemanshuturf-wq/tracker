@@ -50,7 +50,7 @@ import { EventFilters } from '../components/EventFilters';
 import EventCard from '../components/EventCard';
 import UsagePanel from '../components/UsagePanel';
 import { useAuth } from '../context/AuthContext';
-import { useUsageData, getStartOfDayMs } from '../hooks/useUsageData';
+import { useUsageData, getStartOfDayMs, useLocalDayKey } from '../hooks/useUsageData';
 import { formatBytes, formatDuration } from '../lib/format';
 import { UploadApkModal } from '../components/UploadApkModal';
 
@@ -549,8 +549,14 @@ export default function EventsPage() {
     [partnerUid, user?.uid, partnerName],
   );
 
+  const localDayKey = useLocalDayKey();
+
   // STRICT 24-HOUR DATE CUTOFF & FILTERING
-  const startOfToday = useMemo(() => getStartOfDayMs(new Date()), []);
+  const startOfToday = useMemo(() => {
+    void localDayKey;
+    void refreshKey;
+    return getStartOfDayMs(new Date());
+  }, [localDayKey, refreshKey]);
   const startOfYesterday = useMemo(() => startOfToday - 86400000, [startOfToday]);
 
   const filteredEvents = useMemo(() => {
@@ -596,7 +602,9 @@ export default function EventsPage() {
   const stats: StatItem[] = useMemo(() => {
     const totalData =
       (activeUsageDoc?.totalRxBytes ?? 0) + (activeUsageDoc?.totalTxBytes ?? 0);
-    const appCount = activeUsageDoc?.apps.length ?? 0;
+    const appCount = (activeUsageDoc?.apps ?? []).filter(
+      (a) => a.seconds > 0 || (a.openCount || 0) > 0,
+    ).length;
     const labelPrefix = isViewingYesterday ? 'Yesterday' : 'Today';
 
     return [
