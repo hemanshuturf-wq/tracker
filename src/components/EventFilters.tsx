@@ -98,7 +98,7 @@ function EventFiltersComponent({
   }, [showTypes, showApps]);
 
   return (
-    <div className="sticky top-[68px] z-30 -mx-3 mb-4 border-b border-[#e7e3db] bg-[#f6f5f2]/95 px-3 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+    <div className="sticky top-[68px] z-30 mb-4 border-b border-[#e7e3db] bg-[#f6f5f2]/95 px-0 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <div className="flex flex-col gap-2.5">
         <div className="relative w-full">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#96918a]" />
@@ -152,7 +152,7 @@ function EventFiltersComponent({
               </button>
 
               {showTypes && (
-                <div className="absolute left-0 top-full z-50 mt-2 w-72 animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2.5 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
+                <div className="absolute left-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2.5 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
                   <div className="mb-2 flex items-center justify-between border-b border-[#f0eee8] px-2 py-1">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#96918a]">
                       Categories
@@ -242,7 +242,7 @@ function EventFiltersComponent({
               </button>
 
               {showApps && (
-                <div className="absolute left-0 top-full z-50 mt-2 w-60 animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
+                <div className="absolute left-0 top-full z-50 mt-2 w-60 max-w-[calc(100vw-2rem)] animate-slide-down-fade rounded-2xl border border-[#e7e3db] bg-white p-2 shadow-[0_24px_60px_-24px_rgba(29,27,24,0.35)]">
                   <div className="mb-1 flex items-center justify-between border-b border-[#f0eee8] px-2 py-1">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#96918a]">
                       Apps

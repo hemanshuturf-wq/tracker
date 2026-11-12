@@ -683,11 +683,11 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18]">
+    <div className="min-h-screen bg-[#f6f5f2] text-[#1d1b18] w-full overflow-x-hidden">
       <Header partnerName={partnerName} connectionStatus={connectionStatus} />
 
       {newEventCount > 0 && (
-        <div className="fixed left-1/2 top-[82px] z-40 -translate-x-1/2 px-4">
+        <div className="fixed left-1/2 top-[82px] z-40 -translate-x-1/2 px-4 max-w-[calc(100vw-2rem)]">
           <button
             onClick={showNewEvents}
             className="flex animate-slide-down-fade items-center gap-2 rounded-full bg-[#1d1b18] px-4 py-2 text-xs font-medium text-white shadow-lg shadow-[#1d1b18]/15 transition-transform hover:-translate-y-0.5"
@@ -700,7 +700,7 @@ export default function EventsPage() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-[92px] sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-6xl px-3.5 pb-16 pt-[82px] sm:px-6 sm:pt-[92px] lg:px-8 overflow-x-hidden">
         <section id="overview">
           <div className="flex flex-col gap-4 border-b border-[#e7e3db] pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div>

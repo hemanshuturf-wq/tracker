@@ -101,25 +101,25 @@ export default function UsagePanel({
           )}
         </div>
 
-        <div className="mt-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="font-display text-4xl leading-none tracking-tight">
+        <div className="mt-5 flex items-end justify-between gap-2 sm:gap-4 overflow-hidden">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-3xl sm:text-4xl leading-none tracking-tight truncate">
               {loading && !today ? '—' : formatDuration(today?.totalSeconds ?? 0)}
             </p>
-            <p className="mt-1.5 text-xs text-[#96918a]">
+            <p className="mt-1.5 text-xs text-[#96918a] truncate">
               {today
                 ? `Across ${apps.length} app${apps.length === 1 ? '' : 's'}`
                 : 'No sync yet today'}
             </p>
           </div>
 
-          <div className="flex h-16 items-end gap-1.5" aria-label="Seven day screen time trend">
+          <div className="flex h-16 items-end gap-1 sm:gap-1.5 shrink-0" aria-label="Seven day screen time trend">
             {trend.map((day) => {
               const isToday = day.date === dateKey(new Date());
               return (
                 <div
                   key={day.date}
-                  className="flex w-6 flex-col items-center gap-1"
+                  className="flex w-4 sm:w-6 flex-col items-center gap-1"
                   title={`${formatDuration(day.seconds)} · ${day.date}`}
                 >
                   <div
