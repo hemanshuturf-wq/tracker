@@ -1,374 +1,329 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   X,
-  Upload,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
   ExternalLink,
   PackageCheck,
   Loader2,
+  RefreshCw,
   GitBranch,
+  Download,
+  AlertTriangle,
+  FileCode2,
+  Smartphone,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { formatBytes } from '../lib/format';
 
 interface UploadApkModalProps {
   onClose: () => void;
 }
 
+interface ReleaseAsset {
+  id: number;
+  name: string;
+  size: number;
+  download_count: number;
+  browser_download_url: string;
+  created_at: string;
+}
+
+interface GitHubRelease {
+  id: number;
+  tag_name: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+  assets: ReleaseAsset[];
+}
+
 const GITHUB_REPO = 'hemanshuturf-wq/tracker';
 
 export function UploadApkModal({ onClose }: UploadApkModalProps) {
-  const [versionName, setVersionName] = useState('1.0.2');
-  const [versionCode, setVersionCode] = useState(2);
-  const [notes, setNotes] = useState(
-    '🌸 AmiChan feminine makeover, real-time ongoing call tracking, 24-hr Digital Wellbeing & cute love notes!',
-  );
-  const [githubToken, setGithubToken] = useState(
-    () => (import.meta.env.VITE_GITHUB_TOKEN as string) || localStorage.getItem('gh_token') || '',
-  );
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [directApkUrl, setDirectApkUrl] = useState('');
-  const [status, setStatus] = useState<
-    'idle' | 'creating_release' | 'uploading_apk' | 'updating_firestore' | 'success' | 'error'
-  >('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [release, setRelease] = useState<GitHubRelease | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      // Auto-extract version name from filename if possible
-      const match = file.name.match(/v?(\d+\.\d+(\.\d+)?)/i);
-      if (match) {
-        setVersionName(match[1]);
+  const fetchLatestRelease = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`GitHub returned HTTP ${res.status} (${res.statusText})`);
       }
+      const data: GitHubRelease = await res.json();
+      setRelease(data);
+    } catch (err: any) {
+      console.error('Failed to fetch latest GitHub release:', err);
+      setError(err?.message || 'Failed to fetch release information from GitHub.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePublish = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
+  useEffect(() => {
+    fetchLatestRelease();
+  }, []);
 
-    let finalApkUrl = directApkUrl.trim();
+  const apkAsset = release?.assets?.find((a) => a.name.endsWith('.apk'));
 
-    try {
-      if (selectedFile) {
-        if (!githubToken.trim()) {
-          throw new Error('Please provide a GitHub Personal Access Token to upload the APK.');
-        }
-
-        localStorage.setItem('gh_token', githubToken.trim());
-        const tag = `v${versionName.trim()}`;
-
-        // 1. Create GitHub Release
-        setStatus('creating_release');
-        const releaseRes = await fetch(
-          `https://api.github.com/repos/${GITHUB_REPO}/releases`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${githubToken.trim()}`,
-              Accept: 'application/vnd.github+json',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              tag_name: tag,
-              name: `AmiChan ${tag} 🌸`,
-              body: notes.trim(),
-              draft: false,
-              prerelease: false,
-            }),
-          },
-        );
-
-        let releaseData: any;
-        if (releaseRes.status === 422) {
-          // Release / tag might already exist, fetch it
-          const existingRes = await fetch(
-            `https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${tag}`,
-            {
-              headers: {
-                Authorization: `Bearer ${githubToken.trim()}`,
-                Accept: 'application/vnd.github+json',
-              },
-            },
-          );
-          if (!existingRes.ok) {
-            throw new Error(`Tag ${tag} already exists or failed to create release.`);
-          }
-          releaseData = await existingRes.json();
-        } else if (!releaseRes.ok) {
-          const errData = await releaseRes.json().catch(() => ({}));
-          throw new Error(errData.message || `Failed to create GitHub release (${releaseRes.status})`);
-        } else {
-          releaseData = await releaseRes.json();
-        }
-
-        // 2. Upload APK Asset to GitHub Release
-        setStatus('uploading_apk');
-        const uploadUrlTemplate = releaseData.upload_url;
-        const uploadUrl = uploadUrlTemplate.replace(/\{(\?.*)?\}/, `?name=AmiChan-${tag}.apk`);
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${githubToken.trim()}`,
-            'Content-Type': 'application/vnd.android.package-archive',
-          },
-          body: selectedFile,
-        });
-
-        if (!uploadRes.ok) {
-          const uploadErr = await uploadRes.json().catch(() => ({}));
-          throw new Error(uploadErr.message || `Failed to upload APK asset to GitHub (${uploadRes.status})`);
-        }
-
-        const assetData = await uploadRes.json();
-        finalApkUrl = assetData.browser_download_url;
-      } else if (!finalApkUrl) {
-        throw new Error('Please select an APK file to upload, or provide an APK download URL.');
-      }
-
-      // 3. Update Firestore `app_updates/latest`
-      setStatus('updating_firestore');
-      await setDoc(
-        doc(db, 'app_updates', 'latest'),
-        {
-          versionCode: Number(versionCode),
-          versionName: versionName.trim(),
-          apkUrl: finalApkUrl,
-          notes: notes.trim(),
-          publishedAt: Date.now(),
-        },
-        { merge: true },
-      );
-
-      setPublishedUrl(finalApkUrl);
-      setStatus('success');
-    } catch (err: any) {
-      console.error('Publish update error:', err);
-      setErrorMessage(err.message || 'Failed to publish app update.');
-      setStatus('error');
+  const handleCopyApkUrl = () => {
+    if (apkAsset?.browser_download_url) {
+      navigator.clipboard.writeText(apkAsset.browser_download_url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1d1b18]/40 backdrop-blur-xs animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-lg rounded-[28px] border border-[#f0e4ea] bg-white p-6 shadow-2xl my-8">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#f7eef2]">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff0f5] text-[#c2185b]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-[#ebdce3] overflow-hidden my-8">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-[#f0e7eb] px-6 py-4 bg-gradient-to-r from-[#fff5f8] via-[#fff9fb] to-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c2185b] text-white shadow-xs">
               <PackageCheck className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#1d1b18] flex items-center gap-1.5">
-                Upload New APK & In-App Update
-                <Sparkles className="w-3.5 h-3.5 text-[#ff4081]" />
+              <h2 className="text-base font-bold text-[#1d1b18] flex items-center gap-1.5">
+                GitHub App Releases & Updates
+                <span className="text-[#c2185b]">🌸</span>
               </h2>
               <p className="text-xs text-[#6e6a63]">
-                Save APK to GitHub Releases & notify connected devices
+                Zero Firebase dependency · Phone fetches APK directly from GitHub Releases
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-[#96918a] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
+            className="rounded-lg p-1.5 text-[#96918a] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
+            title="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {status === 'success' ? (
-          <div className="py-6 text-center space-y-4">
-            <div className="w-14 h-14 mx-auto rounded-full bg-[#ecfdf3] text-[#067647] flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8" />
+        {/* Content Body */}
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+          {/* Architecture Banner */}
+          <div className="rounded-xl border border-[#ebdce3] bg-[#fff5f8] p-3.5 flex items-start gap-3">
+            <div className="mt-0.5 rounded-lg bg-[#c2185b]/10 p-1.5 text-[#c2185b]">
+              <Smartphone className="h-4 w-4" />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-[#1d1b18]">
-                New Update Published! 🌸
-              </h3>
-              <p className="mt-1 text-xs text-[#6e6a63] max-w-sm mx-auto">
-                Version <strong>{versionName}</strong> (Code: {versionCode}) is now live. Connected devices will automatically receive the update prompt!
+            <div className="text-xs text-[#442c36] space-y-1">
+              <p className="font-semibold text-[#1d1b18]">
+                Direct GitHub Releases Integration
+              </p>
+              <p className="leading-relaxed text-[#6e6a63]">
+                The Android app checks{' '}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-[#c2185b] border border-[#ebdce3]">
+                  api.github.com/repos/{GITHUB_REPO}/releases/latest
+                </code>{' '}
+                automatically on launch and periodically. No Firebase Firestore or Storage is used.
               </p>
             </div>
+          </div>
 
-            {publishedUrl && (
+          {/* Current Live Release Card */}
+          <div className="rounded-xl border border-[#ebdce3] bg-white p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-[#c2185b]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#6e6a63]">
+                  Latest Release on GitHub
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={fetchLatestRelease}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 text-xs text-[#c2185b] hover:text-[#ad1457] font-medium"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="py-8 flex flex-col items-center justify-center gap-2 text-xs text-[#96918a]">
+                <Loader2 className="h-6 w-6 animate-spin text-[#c2185b]" />
+                <span>Checking GitHub Releases...</span>
+              </div>
+            ) : error ? (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-2 text-xs text-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Could not reach GitHub Releases API</p>
+                  <p className="mt-0.5 text-amber-700">{error}</p>
+                </div>
+              </div>
+            ) : release ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-[#f0e7eb]">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-[#c2185b] px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
+                      {release.tag_name}
+                    </span>
+                    <span className="text-sm font-semibold text-[#1d1b18]">
+                      {release.name || release.tag_name}
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#96918a]">
+                    Published {new Date(release.published_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                {/* APK Asset status */}
+                {apkAsset ? (
+                  <div className="rounded-lg bg-[#f0fdf4] border border-[#bbf7d0] p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="rounded-md bg-emerald-600 p-1.5 text-white">
+                        <FileCode2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-emerald-900 truncate">
+                          {apkAsset.name}
+                        </p>
+                        <p className="text-[11px] text-emerald-700">
+                          {formatBytes(apkAsset.size)} · {apkAsset.download_count} download
+                          {apkAsset.download_count === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleCopyApkUrl}
+                        className="rounded-md bg-white border border-[#bbf7d0] px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-50 transition-colors"
+                      >
+                        {copied ? 'Copied! ✓' : 'Copy URL'}
+                      </button>
+                      <a
+                        href={apkAsset.browser_download_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 shadow-2xs"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-[#fff8e1] border border-[#ffe082] p-3 flex items-start gap-2.5 text-xs text-[#795548]">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-[#5d4037]">No APK Asset Attached to {release.tag_name}</p>
+                      <p className="mt-0.5 text-[#6d4c41]">
+                        The release tag exists, but the <code className="font-mono">.apk</code> binary hasn't been uploaded to it yet.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Release Notes */}
+                {release.body && (
+                  <div className="rounded-lg bg-[#faf7f5] p-3 text-xs text-[#524e48]">
+                    <p className="font-semibold text-[#1d1b18] mb-1">Release Notes:</p>
+                    <p className="whitespace-pre-wrap font-sans text-xs text-[#6e6a63] leading-relaxed">
+                      {release.body}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Quick Publishing Guide */}
+          <div className="rounded-xl border border-[#ebdce3] bg-gradient-to-br from-white to-[#fffafb] p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#6e6a63]">
+              How to Publish a New APK Release
+            </h3>
+
+            <div className="space-y-2 text-xs text-[#6e6a63]">
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff0f5] text-[11px] font-bold text-[#c2185b]">
+                  1
+                </span>
+                <p className="leading-5">
+                  Your optimized release APK is compiled and waiting on your Desktop:
+                  <br />
+                  <code className="font-mono text-[11px] text-[#c2185b] bg-[#fff0f5] px-1.5 py-0.5 rounded">
+                    AmiChan-v1.7-release.apk
+                  </code>
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff0f5] text-[11px] font-bold text-[#c2185b]">
+                  2
+                </span>
+                <p className="leading-5">
+                  Click the button below to open the GitHub Release page in your browser.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fff0f5] text-[11px] font-bold text-[#c2185b]">
+                  3
+                </span>
+                <p className="leading-5">
+                  Drag & drop the APK file into GitHub's binary upload box and click{' '}
+                  <strong className="text-[#1d1b18]">"Update release"</strong>. The Android app will automatically notify devices!
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-3">
               <a
-                href={publishedUrl}
+                href={
+                  release?.html_url
+                    ? `${release.html_url.replace('/tag/', '/edit/')}`
+                    : `https://github.com/${GITHUB_REPO}/releases/new`
+                }
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-[#ff4081] font-medium hover:underline"
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#c2185b] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#ad1457] transition-colors"
               >
-                <span>View APK in GitHub Releases</span>
-                <ExternalLink className="w-3 h-3" />
+                <span>Open GitHub Release Editor</span>
+                <ExternalLink className="h-4 w-4" />
               </a>
-            )}
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white text-xs font-semibold shadow-xs transition-all"
+              <a
+                href={`https://github.com/${GITHUB_REPO}/releases`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ebdce3] bg-white px-3.5 py-2.5 text-xs font-medium text-[#6e6a63] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
               >
-                Done
-              </button>
+                <span>All Releases</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             </div>
           </div>
-        ) : (
-          <form onSubmit={handlePublish} className="mt-4 space-y-4 text-xs">
-            {errorMessage && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-[#fef3f2] border border-[#fecdca] text-[#b42318]">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
+        </div>
 
-            {/* Version Name & Code */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium text-[#1d1b18] mb-1">
-                  Version Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={versionName}
-                  onChange={(e) => setVersionName(e.target.value)}
-                  placeholder="e.g. 1.0.2"
-                  className="w-full px-3 py-2 rounded-xl border border-[#ebdce3] bg-[#fffcfd] text-[#1d1b18] focus:outline-none focus:border-[#ff4081]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-[#1d1b18] mb-1">
-                  Version Code
-                </label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={versionCode}
-                  onChange={(e) => setVersionCode(Number(e.target.value) || 1)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#ebdce3] bg-[#fffcfd] text-[#1d1b18] focus:outline-none focus:border-[#ff4081]"
-                />
-              </div>
-            </div>
-
-            {/* Release Notes */}
-            <div>
-              <label className="block font-medium text-[#1d1b18] mb-1">
-                Release Notes / Changelog 🌸
-              </label>
-              <textarea
-                rows={2}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="What's new in this build?"
-                className="w-full px-3 py-2 rounded-xl border border-[#ebdce3] bg-[#fffcfd] text-[#1d1b18] focus:outline-none focus:border-[#ff4081]"
-              />
-            </div>
-
-            {/* APK File Picker */}
-            <div>
-              <label className="block font-medium text-[#1d1b18] mb-1">
-                Select APK File
-              </label>
-              <label className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-[#ebdce3] bg-[#fff9fb] hover:bg-[#fff0f5] transition-colors cursor-pointer">
-                <Upload className="w-6 h-6 text-[#c2185b] mb-1.5" />
-                <span className="font-medium text-[#1d1b18] truncate max-w-[280px]">
-                  {selectedFile ? selectedFile.name : 'Choose or drop .apk file here'}
-                </span>
-                <span className="text-[10px] text-[#96918a] mt-0.5">
-                  {selectedFile
-                    ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-                    : 'Target: app-debug.apk / app-release.apk'}
-                </span>
-                <input
-                  type="file"
-                  accept=".apk"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {/* Direct APK URL Alternative */}
-            <div>
-              <label className="block font-medium text-[#6e6a63] mb-1">
-                Or Direct APK Download URL (optional)
-              </label>
-              <input
-                type="url"
-                value={directApkUrl}
-                onChange={(e) => setDirectApkUrl(e.target.value)}
-                placeholder="https://.../app-release.apk"
-                className="w-full px-3 py-2 rounded-xl border border-[#ebdce3] bg-[#fffcfd] text-[#1d1b18] focus:outline-none focus:border-[#ff4081]"
-              />
-            </div>
-
-            {/* GitHub Token */}
-            <div>
-              <label className="block font-medium text-[#6e6a63] mb-1 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <GitBranch className="w-3 h-3 text-[#c2185b]" />
-                  GitHub Token (for release upload)
-                </span>
-                <span className="text-[10px] text-[#96918a]">Repo: {GITHUB_REPO}</span>
-              </label>
-              <input
-                type="password"
-                value={githubToken}
-                onChange={(e) => setGithubToken(e.target.value)}
-                placeholder="ghp_..."
-                className="w-full px-3 py-2 rounded-xl border border-[#ebdce3] bg-[#fffcfd] text-[#1d1b18] focus:outline-none focus:border-[#ff4081] font-mono text-[11px]"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={status !== 'idle' && status !== 'error'}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-[#ebdce3] bg-white text-[#6e6a63] font-medium hover:bg-[#faf8f9]"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={status !== 'idle' && status !== 'error'}
-                className="flex-[2] py-2.5 px-4 rounded-xl bg-[#c2185b] hover:bg-[#ff4081] text-white font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-              >
-                {status === 'creating_release' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Creating Release…</span>
-                  </>
-                ) : status === 'uploading_apk' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Uploading APK to GitHub…</span>
-                  </>
-                ) : status === 'updating_firestore' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Broadcasting Update…</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    <span>Publish & Update App 🚀</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
+        {/* Modal Footer */}
+        <div className="border-t border-[#f0e7eb] px-6 py-3.5 bg-[#faf7f5] flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-[#ebdce3] bg-white px-4 py-2 text-xs font-semibold text-[#6e6a63] hover:bg-[#fff0f5] hover:text-[#c2185b] transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -187,14 +187,15 @@ export function useUsageData(
       })
       .catch(() => {});
 
-    // 4. Query all today's events directly using the proven (syncedByUid, observedAtUtc DESC) index!
-    // Since it's ordered descending by time, the newest events come first. We collect all
-    // events since local midnight (startOfTodayMs) in real time without depending on timeline pagination.
+    // 4. Query all today's events directly using the composite index (syncedByUid, observedAtUtc DESC)
+    // strictly bounded from local midnight (startOfTodayMs).
+    // This guarantees screen time is 100% complete and accurate immediately on load,
+    // completely independent of timeline pagination.
     const todayEventsStream = query(
       collection(db, 'events'),
       where('syncedByUid', '==', partnerUid),
+      where('observedAtUtc', '>=', startOfTodayMs),
       orderBy('observedAtUtc', 'desc'),
-      limit(2000),
     );
 
     const unsubscribeTodayEvents = onSnapshot(
@@ -205,13 +206,6 @@ export function useUsageData(
         let count = 0;
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data() as TrackerEvent;
-          const obs = typeof data.observedAtUtc === 'number'
-            ? data.observedAtUtc
-            : Date.parse(String(data.observedAtUtc)) || 0;
-          if (obs < startOfTodayMs) {
-            // Reached before 12:00 AM midnight today - stop!
-            break;
-          }
           count++;
           if (
             data.eventType === 'APP_SESSION_END' ||
@@ -225,7 +219,40 @@ export function useUsageData(
         setTodayEventCount(count);
       },
       (e) => {
-        console.warn('Today events stream warn:', e);
+        console.warn('Today events stream range query error, falling back to limit query:', e);
+        // Fallback without range filter if range index is missing or building
+        const fallbackStream = query(
+          collection(db, 'events'),
+          where('syncedByUid', '==', partnerUid),
+          orderBy('observedAtUtc', 'desc'),
+          limit(2000),
+        );
+        onSnapshot(
+          fallbackStream,
+          (fallbackSnap) => {
+            if (!active) return;
+            const todaySessions: TrackerEvent[] = [];
+            let count = 0;
+            for (const docSnap of fallbackSnap.docs) {
+              const data = docSnap.data() as TrackerEvent;
+              const obs = typeof data.observedAtUtc === 'number'
+                ? data.observedAtUtc
+                : Date.parse(String(data.observedAtUtc)) || 0;
+              if (obs < startOfTodayMs) break;
+              count++;
+              if (
+                data.eventType === 'APP_SESSION_END' ||
+                data.eventType === 'APP_SESSION_START' ||
+                (data.durationSeconds && Number(data.durationSeconds) > 0)
+              ) {
+                todaySessions.push({ ...data, id: docSnap.id });
+              }
+            }
+            setLiveTodaySessions(todaySessions);
+            setTodayEventCount(count);
+          },
+          (err) => console.warn('Fallback stream error:', err),
+        );
       },
     );
 

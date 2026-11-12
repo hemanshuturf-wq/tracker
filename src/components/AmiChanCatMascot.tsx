@@ -82,3 +82,4 @@ export function AmiChanCatMascot({ size = 40, mood = 'happy' }: AmiChanCatMascot
     </div>
   );
 }
+

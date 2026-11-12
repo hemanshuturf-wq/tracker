@@ -324,6 +324,34 @@ function EventFiltersComponent({
             })}
           </div>
 
+          {/* Date range segmented buttons */}
+          <div className="flex items-center gap-0.5 rounded-xl border border-[#ebdce3] bg-white p-0.5 max-w-full overflow-x-auto">
+            {(['today', 'yesterday', '7d', 'all'] as const).map((range) => {
+              const labelMap = {
+                today: 'Today 🌸',
+                yesterday: 'Yesterday 📅',
+                '7d': '7D',
+                all: 'All Time',
+              };
+              const isActive = filters.dateRange === range;
+              return (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => onChange({ dateRange: range })}
+                  className={clsx(
+                    'rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors',
+                    isActive
+                      ? 'bg-[#c2185b] text-white shadow-2xs'
+                      : 'text-[#6e6a63] hover:bg-[#fff0f5] hover:text-[#c2185b]',
+                  )}
+                >
+                  {labelMap[range]}
+                </button>
+              );
+            })}
+          </div>
+
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
