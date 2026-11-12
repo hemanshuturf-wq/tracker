@@ -3,9 +3,9 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   limit,
   onSnapshot,
+  orderBy,
   query,
   where,
 } from 'firebase/firestore';
@@ -17,6 +17,7 @@ export interface UsageData {
   today: AppUsageDoc | null;
   yesterday: AppUsageDoc | null;
   history: AppUsageDoc[];
+  todayEventCount: number;
   loading: boolean;
   error: string | null;
   refresh: () => void;
@@ -104,6 +105,7 @@ export function useUsageData(
   const [rawYesterday, setRawYesterday] = useState<AppUsageDoc | null>(null);
   const [history, setHistory] = useState<AppUsageDoc[]>([]);
   const [liveTodaySessions, setLiveTodaySessions] = useState<TrackerEvent[]>([]);
+  const [todayEventCount, setTodayEventCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -185,47 +187,68 @@ export function useUsageData(
       })
       .catch(() => {});
 
-    // 4. Query today's APP_SESSION events directly from `events` collection
-    // This guarantees total screen time is populated IMMEDIATELY on load even if
-    // the phone hasn't completed its background rollup sync yet!
-    const sessionQuery = query(
+    // 4. Query all today's events directly using the proven (syncedByUid, observedAtUtc DESC) index!
+    // Since it's ordered descending by time, the newest events come first. We collect all
+    // events since local midnight (startOfTodayMs) in real time without depending on timeline pagination.
+    const todayEventsStream = query(
       collection(db, 'events'),
       where('syncedByUid', '==', partnerUid),
-      where('eventType', '==', 'APP_SESSION_END'),
-      limit(250),
+      orderBy('observedAtUtc', 'desc'),
+      limit(2000),
     );
 
-    getDocs(sessionQuery)
-      .then((snapshot) => {
+    const unsubscribeTodayEvents = onSnapshot(
+      todayEventsStream,
+      (snapshot) => {
         if (!active) return;
         const todaySessions: TrackerEvent[] = [];
+        let count = 0;
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data() as TrackerEvent;
           const obs = typeof data.observedAtUtc === 'number'
             ? data.observedAtUtc
             : Date.parse(String(data.observedAtUtc)) || 0;
-          // STRICT RULE: Only events strictly starting from today's midnight (12:00 AM)
-          if (obs >= startOfTodayMs) {
+          if (obs < startOfTodayMs) {
+            // Reached before 12:00 AM midnight today - stop!
+            break;
+          }
+          count++;
+          if (
+            data.eventType === 'APP_SESSION_END' ||
+            data.eventType === 'APP_SESSION_START' ||
+            (data.durationSeconds && Number(data.durationSeconds) > 0)
+          ) {
             todaySessions.push({ ...data, id: docSnap.id });
           }
         }
         setLiveTodaySessions(todaySessions);
-      })
-      .catch((e) => {
-        console.warn('Live session query warn:', e);
-      });
+        setTodayEventCount(count);
+      },
+      (e) => {
+        console.warn('Today events stream warn:', e);
+      },
+    );
 
     return () => {
       active = false;
       unsubscribeToday();
       unsubscribeRollups();
+      unsubscribeTodayEvents();
     };
   }, [partnerUid, refreshKey, todayDateStr, yesterdayDateStr, startOfTodayMs]);
 
   // Reconcile authoritative app_usage rollup with live today events
   const today = useMemo(() => {
-    // Combine recent events passed from timeline with directly queried live sessions
-    const allEvents = [...(recentEvents || []), ...liveTodaySessions];
+    // Combine directly streamed live today events with any timeline events, deduplicating by ID
+    const seenIds = new Set<string>();
+    const allEvents: TrackerEvent[] = [];
+    for (const e of [...liveTodaySessions, ...(recentEvents || [])]) {
+      const id = e.id || `${e.packageName}_${e.observedAtUtc}`;
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        allEvents.push(e);
+      }
+    }
 
     const sessionStats = new Map<
       string,
@@ -342,5 +365,13 @@ export function useUsageData(
 
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
-  return { today, yesterday: rawYesterday, history, loading, error, refresh };
+  return {
+    today,
+    yesterday: rawYesterday,
+    history,
+    todayEventCount,
+    loading,
+    error,
+    refresh,
+  };
 }

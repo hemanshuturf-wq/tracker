@@ -52,7 +52,6 @@ import UsagePanel from '../components/UsagePanel';
 import { useAuth } from '../context/AuthContext';
 import { useUsageData, getStartOfDayMs } from '../hooks/useUsageData';
 import { formatBytes, formatDuration } from '../lib/format';
-import { LoveNotesWidget } from '../components/LoveNotesWidget';
 import { UploadApkModal } from '../components/UploadApkModal';
 
 interface Filters {
@@ -628,7 +627,11 @@ export default function EventsPage() {
       },
       {
         label: isViewingYesterday ? 'Events yesterday' : 'Events today',
-        value: String(filteredEvents.length),
+        value: String(
+          isViewingYesterday
+            ? filteredEvents.length
+            : (usage.todayEventCount > 0 ? usage.todayEventCount : filteredEvents.length)
+        ),
         detail: isViewingYesterday
           ? 'Full 24-hr record'
           : 'Strictly from 12 AM today',
@@ -636,7 +639,7 @@ export default function EventsPage() {
         iconClass: 'bg-[#fff5f8] text-[#ff4081]',
       },
     ];
-  }, [usage.loading, activeUsageDoc, isViewingYesterday, filteredEvents.length]);
+  }, [usage.loading, activeUsageDoc, isViewingYesterday, filteredEvents.length, usage.todayEventCount]);
 
   const displayedImages = useMemo(
     () => remoteImages.slice(0, visiblePhotoCount),
@@ -781,17 +784,8 @@ export default function EventsPage() {
             </button>
           </div>
 
-          {/* LOVE NOTES & DAILY MOOD CHECK-IN WIDGET */}
-          <div className="mt-4 w-full max-w-full min-w-0">
-            <LoveNotesWidget
-              currentUid={user?.uid ?? null}
-              partnerUid={partnerUid}
-              partnerName={partnerName}
-            />
-          </div>
-
           {/* STATS TILES */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 w-full max-w-full min-w-0">
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 w-full max-w-full min-w-0">
             {stats.map((stat) => (
               <div
                 key={stat.label}
