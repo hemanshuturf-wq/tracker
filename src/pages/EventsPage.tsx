@@ -157,9 +157,8 @@ export default function EventsPage() {
     ? 'parth@gmail.com'
     : 'partner@example.com';
 
-  const usage = useUsageData(partnerUid);
-
   const [events, setEvents] = useState<TrackerEvent[]>([]);
+  const usage = useUsageData(partnerUid, events);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
